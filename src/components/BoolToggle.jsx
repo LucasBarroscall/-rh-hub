@@ -12,7 +12,7 @@ export default function BoolToggle({ label, value, onChange, disabled, semantic 
       <div className="flex gap-2">
         {[true, false].map((v) => {
           const ativo = value === v
-          let classe = 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50 dark:border-navy-700 dark:bg-navy-900 dark:text-navy-200 dark:hover:bg-navy-800'
+          let classe = 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50 dark:border-navy-700 dark:bg-navy-900 dark:text-navy-200 dark:hover:bg-navy-800 disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-navy-900 disabled:cursor-not-allowed'
           if (ativo) {
             if (semantic) {
               classe = v

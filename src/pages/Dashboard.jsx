@@ -17,6 +17,7 @@ import {
 import { X, Users, TrendingUp, Gauge, Target } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import DateRangePicker from '../components/DateRangePicker'
 import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
 
 const CORES = ['#2f4c73', '#D4D943', '#30cff2', '#a64170', '#2a438c', '#7c93b8']
@@ -27,6 +28,12 @@ const PERIODOS = [
   { id: 'mes', label: 'Este mês' },
   { id: 'ano', label: 'Este ano' },
   { id: 'tudo', label: 'Tudo' },
+]
+
+const GRANULARIDADES = [
+  { id: 'dia', label: 'Dia' },
+  { id: 'mes', label: 'Mês' },
+  { id: 'ano', label: 'Ano' },
 ]
 
 const FAIXAS_ETARIAS = ['<18', '18-24', '25-34', '35-44', '45+']
@@ -48,6 +55,21 @@ function inicioPeriodo(id) {
   return null
 }
 
+function chaveGranular(dataISO, granularidade) {
+  if (granularidade === 'ano') return dataISO.slice(0, 4)
+  if (granularidade === 'mes') return dataISO.slice(0, 7)
+  return dataISO.slice(0, 10)
+}
+
+function rotuloGranular(chave, granularidade) {
+  if (granularidade === 'ano') return chave
+  if (granularidade === 'mes') {
+    const [ano, mes] = chave.split('-')
+    return `${mes}/${ano.slice(2)}`
+  }
+  return chave.slice(5) // MM-DD
+}
+
 function KpiCard({ icon: Icon, label, value, sub }) {
   return (
     <div className="card p-5">
@@ -64,7 +86,7 @@ function KpiCard({ icon: Icon, label, value, sub }) {
 function ChartCard({ title, children, onClear, cleared }) {
   return (
     <div className="card p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100">{title}</h3>
         {!cleared && onClear && (
           <button onClick={onClear} className="text-xs text-navy-400 hover:text-navy-700 dark:hover:text-navy-200 flex items-center gap-1">
@@ -83,6 +105,8 @@ export default function Dashboard() {
   const [dados, setDados] = useState([])
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState('30d')
+  const [intervalo, setIntervalo] = useState({ inicio: null, fim: null })
+  const [granularidade, setGranularidade] = useState('dia')
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS)
 
   const carregar = useCallback(async () => {
@@ -96,13 +120,23 @@ export default function Dashboard() {
     carregar()
   }, [carregar])
 
+  function selecionarPeriodo(id) {
+    setPeriodo(id)
+    setIntervalo({ inicio: null, fim: null })
+  }
+
   const dentroDoPeriodo = useMemo(() => {
-    const inicio = inicioPeriodo(periodo)
-    return (c) => {
-      if (!inicio) return true
-      return new Date(c.created_at) >= inicio
+    if (intervalo.inicio && intervalo.fim) {
+      const fimAjustado = new Date(intervalo.fim)
+      fimAjustado.setHours(23, 59, 59, 999)
+      return (c) => {
+        const d = new Date(c.created_at)
+        return d >= intervalo.inicio && d <= fimAjustado
+      }
     }
-  }, [periodo])
+    const inicio = inicioPeriodo(periodo)
+    return (c) => !inicio || new Date(c.created_at) >= inicio
+  }, [periodo, intervalo])
 
   const base = useMemo(() => dados.filter(dentroDoPeriodo), [dados, dentroDoPeriodo])
 
@@ -121,8 +155,6 @@ export default function Dashboard() {
     setFiltros((f) => ({ ...f, [campo]: f[campo] === valor ? null : valor }))
   }
 
-  // Opções disponíveis para cada select de filtro, calculadas a partir do
-  // período selecionado (antes de aplicar os próprios filtros de campo).
   const opcoesPorCampo = useMemo(() => {
     const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), etapa: new Set() }
     base.forEach((c) => {
@@ -192,31 +224,31 @@ export default function Dashboard() {
     filtrados
       .filter((c) => c.teste_realizado)
       .forEach((c) => {
-        const chave = (c.teste_em || c.created_at).slice(0, 10)
-        if (!mapa[chave]) mapa[chave] = { data: chave, wpmTotal: 0, precisaoTotal: 0, n: 0 }
+        const chave = chaveGranular((c.teste_em || c.created_at).slice(0, 10), granularidade)
+        if (!mapa[chave]) mapa[chave] = { chave, wpmTotal: 0, precisaoTotal: 0, n: 0 }
         mapa[chave].wpmTotal += Number(c.wpm || 0)
         mapa[chave].precisaoTotal += Number(c.precisao || 0)
         mapa[chave].n += 1
       })
     return Object.values(mapa)
-      .sort((a, b) => a.data.localeCompare(b.data))
+      .sort((a, b) => a.chave.localeCompare(b.chave))
       .map((d) => ({
-        data: d.data.slice(5),
+        data: rotuloGranular(d.chave, granularidade),
         WPM: +(d.wpmTotal / d.n).toFixed(1),
         Precisão: +(d.precisaoTotal / d.n).toFixed(1),
       }))
-  }, [filtrados])
+  }, [filtrados, granularidade])
 
-  const candidatosPorDia = useMemo(() => {
+  const candidatosPorPeriodo = useMemo(() => {
     const mapa = {}
     filtrados.forEach((c) => {
-      const chave = c.created_at.slice(0, 10)
+      const chave = chaveGranular(c.created_at.slice(0, 10), granularidade)
       mapa[chave] = (mapa[chave] || 0) + 1
     })
     return Object.entries(mapa)
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([data, value]) => ({ data: data.slice(5), Candidatos: value }))
-  }, [filtrados])
+      .map(([chave, value]) => ({ data: rotuloGranular(chave, granularidade), Candidatos: value }))
+  }, [filtrados, granularidade])
 
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v)
 
@@ -228,18 +260,23 @@ export default function Dashboard() {
             <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Dashboard</h1>
             <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">Visão geral do funil de recrutamento.</p>
           </div>
-          <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1">
-            {PERIODOS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPeriodo(p.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  periodo === p.id ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1">
+              {PERIODOS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => selecionarPeriodo(p.id)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    !intervalo.inicio && periodo === p.id
+                      ? 'bg-navy-700 text-white'
+                      : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <DateRangePicker inicio={intervalo.inicio} fim={intervalo.fim} onChange={(novo) => setIntervalo(novo)} />
           </div>
         </header>
 
@@ -393,6 +430,22 @@ export default function Dashboard() {
               </ChartCard>
             </div>
 
+            <div className="flex justify-end mb-3">
+              <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 w-fit">
+                {GRANULARIDADES.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => setGranularidade(g.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      granularidade === g.id ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid lg:grid-cols-2 gap-5">
               <ChartCard title="Evolução de WPM e Precisão">
                 <ResponsiveContainer width="100%" height={240}>
@@ -408,9 +461,9 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Candidatos cadastrados por dia">
+              <ChartCard title="Candidatos cadastrados">
                 <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={candidatosPorDia}>
+                  <LineChart data={candidatosPorPeriodo}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E4E9F5" />
                     <XAxis dataKey="data" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
                     <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />

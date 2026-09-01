@@ -7,7 +7,7 @@
     @apply text-ink;
   }
   body {
-    @apply bg-white dark:bg-navy-950 antialiased transition-colors;
+    @apply bg-white dark:bg-navy-950 text-ink dark:text-navy-100 antialiased transition-colors;
   }
   h1, h2, h3 {
     @apply font-display;

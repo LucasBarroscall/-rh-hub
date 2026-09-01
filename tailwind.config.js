@@ -12,11 +12,15 @@ export default {
         ink: '#141A2E',
         // Paleta da marca:
         // Principal #2f4c73 · Secundária #D4D943 · #30cff2 · #2a438c · #a64170
+        // Escala completa (50→950) para não faltar nenhum tom usado no app.
         navy: {
           50: '#F1F4F9',
           100: '#DFE6F1',
           200: '#C3D0E4',
+          300: '#A3B6D6',
           400: '#6E85AC',
+          500: '#51698F',
+          600: '#3C577C',
           700: '#2f4c73', // principal
           800: '#2a438c',
           900: '#1B2A45',

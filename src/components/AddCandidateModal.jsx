@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Users } from 'lucide-react'
+import { X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { maskRG, maskCPF, maskTelefone, validarCPF } from '../lib/formatters'
@@ -52,32 +52,18 @@ function SimNao({ label, value, onChange, name }) {
   )
 }
 
-export default function CandidateForm() {
+export default function AddCandidateModal({ onClose, onSaved }) {
   const { opcoes } = useOpcoes()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState(false)
 
   function set(name, value) {
     setForm((f) => ({ ...f, [name]: value }))
   }
 
   function handleChange(e) {
-    const { name, value } = e.target
-    set(name, value)
-  }
-
-  function handleRG(e) {
-    set('rg', maskRG(e.target.value))
-  }
-
-  function handleCPF(e) {
-    set('cpf', maskCPF(e.target.value))
-  }
-
-  function handleTelefone(e) {
-    set('telefone', maskTelefone(e.target.value))
+    set(e.target.name, e.target.value)
   }
 
   async function handleSubmit(e) {
@@ -85,10 +71,9 @@ export default function CandidateForm() {
     setError('')
 
     if (form.fonte === 'Indicação' && form.nome_indicador === '') {
-      setError('Informe o nome de quem te indicou, ou selecione outra origem.')
+      setError('Informe o nome de quem indicou, ou selecione outra origem.')
       return
     }
-
     if (!validarCPF(form.cpf)) {
       setError('O CPF informado não é válido. Confira os números digitados.')
       return
@@ -100,51 +85,29 @@ export default function CandidateForm() {
       nome_indicador: form.fonte === 'Indicação' ? form.nome_indicador || null : 'Ninguém',
       data_nascimento: form.data_nascimento || null,
     }
-
     const { error } = await supabase.from('candidatos').insert(payload)
     setSubmitting(false)
-
     if (error) {
-      setError('Não foi possível enviar seu cadastro. Verifique os dados e tente novamente.')
+      setError('Não foi possível salvar. Confira os campos obrigatórios.')
       console.error(error)
       return
     }
-    setDone(true)
-  }
-
-  if (done) {
-    return (
-      <div className="min-h-screen bg-navy-50 dark:bg-navy-950 flex items-center justify-center px-4">
-        <div className="card max-w-md w-full p-8 text-center">
-          <CheckCircle2 className="mx-auto text-sage-500 mb-4" size={44} />
-          <h1 className="text-xl font-semibold text-navy-900 dark:text-white mb-2">Cadastro recebido!</h1>
-          <p className="text-navy-600 dark:text-navy-300 text-sm">
-            Obrigado, {form.nome_completo.split(' ')[0]}. Seus dados foram registrados e você será
-            chamado(a) para a entrevista em breve.
-          </p>
-        </div>
-      </div>
-    )
+    onSaved()
   }
 
   return (
-    <div className="min-h-screen bg-navy-50 dark:bg-navy-950 py-10 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-2.5 justify-center mb-8">
-          <div className="h-9 w-9 rounded-lg bg-navy-700 flex items-center justify-center">
-            <Users size={19} className="text-amber-400" />
-          </div>
-          <div className="text-left">
-            <p className="font-display text-lg leading-none text-navy-900 dark:text-white">Cadastro de Candidato</p>
-            <p className="text-[11px] text-navy-400 mt-0.5">Processo seletivo</p>
-          </div>
+    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
+      <div className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Adicionar candidato</h2>
+          <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
+            <X size={20} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-7">
+        <form onSubmit={handleSubmit} className="space-y-7">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">
-              Como você chegou até nós
-            </h2>
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Origem</h3>
             <div>
               <label className="field-label">Fonte</label>
               <select name="fonte" required className="field-select" value={form.fonte} onChange={handleChange}>
@@ -160,30 +123,23 @@ export default function CandidateForm() {
             </div>
             {form.fonte === 'Indicação' && (
               <div>
-                <label className="field-label">Quem te indicou?</label>
+                <label className="field-label">Quem indicou?</label>
                 <input
                   name="nome_indicador"
                   required
                   className="field-input"
                   value={form.nome_indicador}
                   onChange={handleChange}
-                  placeholder="Nome completo de quem indicou"
                 />
               </div>
             )}
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h2>
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h3>
             <div>
               <label className="field-label">Nome completo</label>
-              <input
-                name="nome_completo"
-                required
-                className="field-input"
-                value={form.nome_completo}
-                onChange={handleChange}
-              />
+              <input name="nome_completo" required className="field-input" value={form.nome_completo} onChange={handleChange} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -220,7 +176,7 @@ export default function CandidateForm() {
                   inputMode="numeric"
                   className="field-input"
                   value={form.rg}
-                  onChange={handleRG}
+                  onChange={(e) => set('rg', maskRG(e.target.value))}
                   placeholder="Somente números"
                 />
               </div>
@@ -232,20 +188,14 @@ export default function CandidateForm() {
                   inputMode="numeric"
                   className="field-input"
                   value={form.cpf}
-                  onChange={handleCPF}
+                  onChange={(e) => set('cpf', maskCPF(e.target.value))}
                   placeholder="000.000.000-00"
                 />
               </div>
             </div>
             <div>
               <label className="field-label">Nome da mãe</label>
-              <input
-                name="nome_mae"
-                required
-                className="field-input"
-                value={form.nome_mae}
-                onChange={handleChange}
-              />
+              <input name="nome_mae" required className="field-input" value={form.nome_mae} onChange={handleChange} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -256,7 +206,7 @@ export default function CandidateForm() {
                   inputMode="numeric"
                   className="field-input"
                   value={form.telefone}
-                  onChange={handleTelefone}
+                  onChange={(e) => set('telefone', maskTelefone(e.target.value))}
                   placeholder="(00) 0 0000-0000"
                 />
               </div>
@@ -276,16 +226,10 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h2>
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h3>
             <div>
               <label className="field-label">Rua / Número</label>
-              <input
-                name="endereco"
-                required
-                className="field-input"
-                value={form.endereco}
-                onChange={handleChange}
-              />
+              <input name="endereco" required className="field-input" value={form.endereco} onChange={handleChange} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -304,7 +248,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h2>
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h3>
             <div>
               <label className="field-label">Horário de trabalho</label>
               <select
@@ -365,32 +309,31 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h2>
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h3>
             <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
             <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao
-              label="Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
+              label="Concorda com o turno de treinamento fora da jornada?"
               name="concorda_turno_treinamento"
               value={form.concorda_turno_treinamento}
               onChange={set}
             />
             <div>
               <label className="field-label">Observações</label>
-              <textarea
-                name="observacoes"
-                rows={3}
-                className="field-input"
-                value={form.observacoes}
-                onChange={handleChange}
-              />
+              <textarea name="observacoes" rows={3} className="field-input" value={form.observacoes} onChange={handleChange} />
             </div>
           </section>
 
           {error && <p className="text-sm text-clay-600">{error}</p>}
 
-          <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? 'Enviando…' : 'Enviar cadastro'}
-          </button>
+          <div className="flex justify-end gap-3 pt-2 border-t border-navy-100 dark:border-navy-800">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancelar
+            </button>
+            <button type="submit" disabled={submitting} className="btn-primary">
+              {submitting ? 'Salvando…' : 'Adicionar candidato'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

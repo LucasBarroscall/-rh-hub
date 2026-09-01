@@ -91,6 +91,20 @@ Cores da marca (`tailwind.config.js`): principal `#2f4c73`, secundária
 escuro completo — o botão de sol/lua fica no topo do menu lateral, e a
 preferência fica salva no navegador de cada pessoa.
 
+## Listas editáveis (Fonte, Sexo, disponibilidades)
+
+As opções desses campos do formulário do candidato vêm do banco (tabela
+`opcoes_lista`), não do código. Para adicionar/remover uma opção, use
+**Administração → Listas** — o site reflete a mudança na hora.
+
+## Validações do formulário
+
+- **RG**: aceita só números.
+- **CPF**: ganha os pontos e o traço automaticamente enquanto você digita, e o
+  dígito verificador é validado de verdade antes de enviar.
+- **Telefone**: formatado sozinho no padrão `(00) 0 0000-0000`.
+- **E-mail**: campo `type="email"` do navegador.
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard

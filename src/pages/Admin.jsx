@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus } from 'lucide-react'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks } from 'lucide-react'
 
 const ROLES = [
   { id: 'entrevistador1', label: 'Entrevistador 1' },
@@ -95,6 +96,85 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
               />
             </div>
           ))}
+        </div>
+
+        <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+          <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide mb-4">
+            Status do funil — aprovar/reprovar em qualquer etapa
+          </h3>
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
+            <BoolToggle
+              label="Compareceu na entrevista?"
+              value={form.compareceu_entrevista}
+              onChange={(v) => set('compareceu_entrevista', v)}
+              disabled={salvando}
+            />
+            <BoolToggle
+              label="Aprovado na entrevista?"
+              value={form.aprovado_entrevista}
+              onChange={(v) => set('aprovado_entrevista', v)}
+              disabled={salvando}
+              semantic
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4 mb-4">
+            <BoolToggle
+              label="Realizou o teste de digitação?"
+              value={form.teste_realizado}
+              onChange={(v) => set('teste_realizado', v)}
+              disabled={salvando}
+            />
+            <div>
+              <label className="field-label">Alerta de comportamento</label>
+              <input
+                className="field-input"
+                value={form.alerta_comportamental ?? ''}
+                onChange={(e) => set('alerta_comportamental', e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-x-4 gap-y-4 mb-4">
+            {[
+              ['compareceu_exame', 'Compareceu no exame?'],
+              ['aprovado_exame', 'Aprovado no exame?'],
+              ['enviou_documentacao', 'Enviou documentação?'],
+              ['aprovado_documentacao', 'Aprovado na documentação?'],
+              ['compareceu_onboarding', 'Compareceu no onboarding?'],
+              ['compareceu_treinamento', 'Compareceu no treinamento?'],
+            ].map(([campo, label]) => (
+              <BoolToggle
+                key={campo}
+                label={label}
+                value={form[campo]}
+                onChange={(v) => set(campo, v)}
+                disabled={salvando}
+              />
+            ))}
+          </div>
+          <div>
+            <p className="field-label mb-2">Decisão final</p>
+            <div className="grid grid-cols-3 gap-3">
+              {['Aprovado', 'Reprovado', 'Pendente'].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  disabled={salvando}
+                  onClick={() => set('decisao_final', v === 'Pendente' ? null : v)}
+                  className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    (form.decisao_final ?? 'Pendente') === v
+                      ? v === 'Aprovado'
+                        ? 'border-sage-500 bg-sage-500 text-white'
+                        : v === 'Reprovado'
+                          ? 'border-clay-500 bg-clay-500 text-white'
+                          : 'border-navy-700 bg-navy-700 text-white'
+                      : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mt-6 pt-5 border-t border-navy-100 dark:border-navy-800">
@@ -436,6 +516,110 @@ function AbaAcessos() {
   )
 }
 
+const CAMPOS_LISTA = [
+  { chave: 'fonte', label: 'Fonte' },
+  { chave: 'sexo', label: 'Sexo' },
+  { chave: 'disponibilidade_horario_trabalho', label: 'Horário de trabalho' },
+  { chave: 'disponibilidade_horario_treinamento', label: 'Horário de treinamento' },
+  { chave: 'disponibilidade_jornada', label: 'Jornada de trabalho' },
+]
+
+function AbaListas() {
+  const [campoAtivo, setCampoAtivo] = useState(CAMPOS_LISTA[0].chave)
+  const [itens, setItens] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [novoValor, setNovoValor] = useState('')
+  const [salvando, setSalvando] = useState(false)
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('opcoes_lista')
+      .select('*')
+      .eq('campo', campoAtivo)
+      .order('ordem', { ascending: true })
+    if (!error) setItens(data)
+    setLoading(false)
+  }, [campoAtivo])
+
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  async function adicionar(e) {
+    e.preventDefault()
+    if (!novoValor.trim()) return
+    setSalvando(true)
+    const proximaOrdem = itens.length ? Math.max(...itens.map((i) => i.ordem)) + 1 : 1
+    const { error } = await supabase
+      .from('opcoes_lista')
+      .insert({ campo: campoAtivo, valor: novoValor.trim(), ordem: proximaOrdem })
+    setSalvando(false)
+    if (!error) {
+      setNovoValor('')
+      carregar()
+    }
+  }
+
+  async function remover(item) {
+    if (!confirm(`Remover a opção "${item.valor}"? Candidatos já cadastrados com esse valor não são afetados.`)) return
+    const { error } = await supabase.from('opcoes_lista').delete().eq('id', item.id)
+    if (!error) carregar()
+  }
+
+  return (
+    <div>
+      <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
+        <ListChecks size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
+        <p>
+          Essas listas alimentam os menus do formulário de cadastro do candidato. Adicionar ou remover
+          uma opção aqui muda o site na hora, sem precisar editar código.
+        </p>
+      </div>
+
+      <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 mb-5 w-fit flex-wrap">
+        {CAMPOS_LISTA.map((c) => (
+          <button
+            key={c.chave}
+            onClick={() => setCampoAtivo(c.chave)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              campoAtivo === c.chave ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={adicionar} className="flex gap-2 mb-4 max-w-md">
+        <input
+          className="field-input"
+          placeholder="Nova opção…"
+          value={novoValor}
+          onChange={(e) => setNovoValor(e.target.value)}
+        />
+        <button type="submit" disabled={salvando} className="btn-primary flex-shrink-0">
+          Adicionar
+        </button>
+      </form>
+
+      <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-w-md">
+        {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
+        {!loading && itens.length === 0 && <p className="p-4 text-sm text-navy-400">Nenhuma opção cadastrada.</p>}
+        {!loading &&
+          itens.map((item) => (
+            <div key={item.id} className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-navy-800 dark:text-navy-100">{item.valor}</span>
+              <button onClick={() => remover(item)} className="text-navy-400 hover:text-clay-600">
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [aba, setAba] = useState('candidatos')
 
@@ -459,9 +643,14 @@ export default function Admin() {
           <TabButton active={aba === 'acessos'} onClick={() => setAba('acessos')}>
             Acessos e permissões
           </TabButton>
+          <TabButton active={aba === 'listas'} onClick={() => setAba('listas')}>
+            Listas
+          </TabButton>
         </div>
 
-        {aba === 'candidatos' ? <AbaCandidatos /> : <AbaAcessos />}
+        {aba === 'candidatos' && <AbaCandidatos />}
+        {aba === 'acessos' && <AbaAcessos />}
+        {aba === 'listas' && <AbaListas />}
       </div>
     </Layout>
   )

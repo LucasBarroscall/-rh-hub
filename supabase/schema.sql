@@ -201,3 +201,78 @@ create policy "candidatos_delete_analista"
 -- ---------------------------------------------------------
 -- insert into public.profiles (id, nome, email, role)
 -- values ('COLE-O-UUID-DO-USUARIO-AQUI', 'Seu Nome', 'seu-email@empresa.com', 'analista');
+
+-- ---------------------------------------------------------
+-- LISTAS DE OPÇÕES (Fonte, Sexo, disponibilidades) — editáveis
+-- pela tela Administração → Listas, sem precisar mexer no código.
+-- ---------------------------------------------------------
+
+-- As colunas fonte/sexo tinham um "check" travando os valores
+-- possíveis; agora a validação passa a vir da tabela abaixo.
+alter table public.candidatos drop constraint if exists candidatos_fonte_check;
+alter table public.candidatos drop constraint if exists candidatos_sexo_check;
+
+create table if not exists public.opcoes_lista (
+  id uuid primary key default gen_random_uuid(),
+  campo text not null check (
+    campo in (
+      'fonte',
+      'sexo',
+      'disponibilidade_horario_trabalho',
+      'disponibilidade_horario_treinamento',
+      'disponibilidade_jornada'
+    )
+  ),
+  valor text not null,
+  ordem int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (campo, valor)
+);
+
+comment on table public.opcoes_lista is 'Opções dos campos de seleção do cadastro (Fonte, Sexo, disponibilidades) — editável pelo analista sem alterar o código.';
+
+alter table public.opcoes_lista enable row level security;
+
+-- Leitura pública (o formulário do candidato não exige login)
+create policy "opcoes_select_publico"
+  on public.opcoes_lista for select
+  to anon, authenticated
+  using (true);
+
+-- Só o analista gerencia as listas
+create policy "opcoes_insert_analista"
+  on public.opcoes_lista for insert
+  to authenticated
+  with check (public.is_analista(auth.uid()));
+
+create policy "opcoes_update_analista"
+  on public.opcoes_lista for update
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+create policy "opcoes_delete_analista"
+  on public.opcoes_lista for delete
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+insert into public.opcoes_lista (campo, valor, ordem) values
+  ('fonte', 'Redes Sociais', 1),
+  ('fonte', 'Indicação', 2),
+  ('fonte', 'Outros', 3),
+  ('sexo', 'Feminino', 1),
+  ('sexo', 'Masculino', 2),
+  ('sexo', 'Outro', 3),
+  ('sexo', 'Prefiro não informar', 4),
+  ('disponibilidade_horario_trabalho', 'Manhã', 1),
+  ('disponibilidade_horario_trabalho', 'Tarde', 2),
+  ('disponibilidade_horario_trabalho', 'Noite', 3),
+  ('disponibilidade_horario_trabalho', 'Manhã/Tarde', 4),
+  ('disponibilidade_horario_trabalho', 'Tarde/Noite', 5),
+  ('disponibilidade_horario_trabalho', 'Flexível', 6),
+  ('disponibilidade_horario_treinamento', 'Manhã/Tarde', 1),
+  ('disponibilidade_horario_treinamento', 'Tarde/Noite', 2),
+  ('disponibilidade_jornada', 'Meio período', 1),
+  ('disponibilidade_jornada', 'Período integral', 2),
+  ('disponibilidade_jornada', 'Escala 6x1', 3),
+  ('disponibilidade_jornada', 'Escala 5x2', 4)
+on conflict (campo, valor) do nothing;

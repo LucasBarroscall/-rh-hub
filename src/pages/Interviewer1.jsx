@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
+import AddCandidateModal from '../components/AddCandidateModal'
 import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa } from '../lib/candidato'
-import { UserCheck, Phone, MapPin, Calendar, X } from 'lucide-react'
+import { UserCheck, Phone, MapPin, Calendar, X, UserPlus } from 'lucide-react'
 
 export default function Interviewer1() {
   const [fila, setFila] = useState([])
@@ -11,6 +12,7 @@ export default function Interviewer1() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
+  const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -77,6 +79,12 @@ export default function Interviewer1() {
             Mostrar já entrevistados
           </label>
         </header>
+
+        <div className="flex justify-end mb-4">
+          <button onClick={() => setMostrarAdicionar(true)} className="btn-primary flex items-center gap-1.5">
+            <UserPlus size={16} /> Adicionar candidato
+          </button>
+        </div>
 
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
           <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[70vh] overflow-y-auto">
@@ -207,6 +215,16 @@ export default function Interviewer1() {
             </div>
           )}
         </div>
+
+        {mostrarAdicionar && (
+          <AddCandidateModal
+            onClose={() => setMostrarAdicionar(false)}
+            onSaved={() => {
+              setMostrarAdicionar(false)
+              carregar()
+            }}
+          />
+        )}
       </div>
     </Layout>
   )
