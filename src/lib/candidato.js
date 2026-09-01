@@ -43,6 +43,27 @@ export function corEtapa(etapa) {
   return mapa[etapa] || 'bg-navy-100 text-navy-700'
 }
 
+export function etapa1Completa(c) {
+  return c.compareceu_entrevista === false || (c.compareceu_entrevista === true && (c.aprovado_entrevista === true || c.aprovado_entrevista === false))
+}
+
+export function etapa2Completa(c) {
+  return c.teste_realizado === false || (c.teste_realizado === true && c.wpm != null && c.precisao != null)
+}
+
+export function etapa3Completa(c) {
+  return c.decisao_final === 'Aprovado' || c.decisao_final === 'Reprovado'
+}
+
+export function faixaEtariaDe(idade) {
+  if (idade == null) return null
+  if (idade < 18) return '<18'
+  if (idade <= 24) return '18-24'
+  if (idade <= 34) return '25-34'
+  if (idade <= 44) return '35-44'
+  return '45+'
+}
+
 export function simNaoOuVazio(v) {
   if (v === true) return 'Sim'
   if (v === false) return 'Não'

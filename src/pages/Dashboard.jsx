@@ -17,9 +17,9 @@ import {
 import { X, Users, TrendingUp, Gauge, Target } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
-import { etapaFunil } from '../lib/candidato'
+import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
 
-const CORES = ['#212F57', '#E8A33D', '#5C8A6E', '#C1594B', '#5A6FA8', '#B8791B']
+const CORES = ['#2f4c73', '#D4D943', '#30cff2', '#a64170', '#2a438c', '#7c93b8']
 
 const PERIODOS = [
   { id: '7d', label: '7 dias' },
@@ -27,6 +27,16 @@ const PERIODOS = [
   { id: 'mes', label: 'Este mês' },
   { id: 'ano', label: 'Este ano' },
   { id: 'tudo', label: 'Tudo' },
+]
+
+const FAIXAS_ETARIAS = ['<18', '18-24', '25-34', '35-44', '45+']
+
+const CAMPOS_FILTRO = [
+  { chave: 'fonte', label: 'Origem' },
+  { chave: 'sexo', label: 'Sexo' },
+  { chave: 'cidade', label: 'Cidade' },
+  { chave: 'faixaEtaria', label: 'Faixa etária' },
+  { chave: 'etapa', label: 'Etapa do funil' },
 ]
 
 function inicioPeriodo(id) {
@@ -45,7 +55,7 @@ function KpiCard({ icon: Icon, label, value, sub }) {
         <Icon size={15} />
         <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-navy-900 font-display">{value}</p>
+      <p className="text-2xl font-semibold text-navy-900 dark:text-white font-display">{value}</p>
       {sub && <p className="text-xs text-navy-400 mt-1">{sub}</p>}
     </div>
   )
@@ -55,9 +65,9 @@ function ChartCard({ title, children, onClear, cleared }) {
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-navy-800">{title}</h3>
+        <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100">{title}</h3>
         {!cleared && onClear && (
-          <button onClick={onClear} className="text-xs text-navy-400 hover:text-navy-700 flex items-center gap-1">
+          <button onClick={onClear} className="text-xs text-navy-400 hover:text-navy-700 dark:hover:text-navy-200 flex items-center gap-1">
             <X size={12} /> limpar filtro
           </button>
         )}
@@ -67,11 +77,13 @@ function ChartCard({ title, children, onClear, cleared }) {
   )
 }
 
+const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, etapa: null, faixaEtaria: null }
+
 export default function Dashboard() {
   const [dados, setDados] = useState([])
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState('30d')
-  const [filtros, setFiltros] = useState({ fonte: null, sexo: null, cidade: null, etapa: null })
+  const [filtros, setFiltros] = useState(FILTROS_VAZIOS)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -99,6 +111,7 @@ export default function Dashboard() {
       if (filtros.fonte && c.fonte !== filtros.fonte) return false
       if (filtros.sexo && c.sexo !== filtros.sexo) return false
       if (filtros.cidade && c.cidade !== filtros.cidade) return false
+      if (filtros.faixaEtaria && faixaEtariaDe(c.idade) !== filtros.faixaEtaria) return false
       if (filtros.etapa && etapaFunil(c) !== filtros.etapa) return false
       return true
     })
@@ -107,6 +120,25 @@ export default function Dashboard() {
   function alternarFiltro(campo, valor) {
     setFiltros((f) => ({ ...f, [campo]: f[campo] === valor ? null : valor }))
   }
+
+  // Opções disponíveis para cada select de filtro, calculadas a partir do
+  // período selecionado (antes de aplicar os próprios filtros de campo).
+  const opcoesPorCampo = useMemo(() => {
+    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), etapa: new Set() }
+    base.forEach((c) => {
+      if (c.fonte) conj.fonte.add(c.fonte)
+      if (c.sexo) conj.sexo.add(c.sexo)
+      if (c.cidade) conj.cidade.add(c.cidade)
+      conj.etapa.add(etapaFunil(c))
+    })
+    return {
+      fonte: [...conj.fonte].sort(),
+      sexo: [...conj.sexo].sort(),
+      cidade: [...conj.cidade].sort(),
+      etapa: [...conj.etapa].sort(),
+      faixaEtaria: FAIXAS_ETARIAS,
+    }
+  }, [base])
 
   // ---- KPIs ----
   const total = filtrados.length
@@ -140,13 +172,8 @@ export default function Dashboard() {
   const porFaixaEtaria = useMemo(() => {
     const faixas = { '<18': 0, '18-24': 0, '25-34': 0, '35-44': 0, '45+': 0 }
     filtrados.forEach((c) => {
-      const i = c.idade
-      if (i == null) return
-      if (i < 18) faixas['<18']++
-      else if (i <= 24) faixas['18-24']++
-      else if (i <= 34) faixas['25-34']++
-      else if (i <= 44) faixas['35-44']++
-      else faixas['45+']++
+      const f = faixaEtariaDe(c.idade)
+      if (f) faixas[f]++
     })
     return Object.entries(faixas).map(([name, value]) => ({ name, value }))
   }, [filtrados])
@@ -198,16 +225,16 @@ export default function Dashboard() {
       <div className="p-6 lg:p-10 max-w-7xl mx-auto">
         <header className="mb-6 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-navy-900">Dashboard</h1>
-            <p className="text-navy-500 text-sm mt-1">Visão geral do funil de recrutamento.</p>
+            <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Dashboard</h1>
+            <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">Visão geral do funil de recrutamento.</p>
           </div>
-          <div className="flex gap-1 bg-white rounded-lg border border-navy-100 p-1">
+          <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1">
             {PERIODOS.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setPeriodo(p.id)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  periodo === p.id ? 'bg-navy-800 text-white' : 'text-navy-600 hover:bg-navy-50'
+                  periodo === p.id ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
                 }`}
               >
                 {p.label}
@@ -216,24 +243,46 @@ export default function Dashboard() {
           </div>
         </header>
 
+        <div className="card p-4 mb-6 flex flex-wrap items-end gap-4">
+          {CAMPOS_FILTRO.map(({ chave, label }) => (
+            <div key={chave} className="min-w-[160px]">
+              <label className="field-label mb-1">{label}</label>
+              <select
+                className="field-select py-2"
+                value={filtros[chave] ?? ''}
+                onChange={(e) => setFiltros((f) => ({ ...f, [chave]: e.target.value || null }))}
+              >
+                <option value="">Todos</option>
+                {opcoesPorCampo[chave].map((op) => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+          {filtrosAtivos.length > 0 && (
+            <button
+              onClick={() => setFiltros(FILTROS_VAZIOS)}
+              className="text-xs text-navy-400 hover:text-navy-700 dark:hover:text-navy-200 underline mb-2.5"
+            >
+              limpar todos os filtros
+            </button>
+          )}
+        </div>
+
         {filtrosAtivos.length > 0 && (
           <div className="flex items-center gap-2 mb-6 flex-wrap">
-            <span className="text-xs text-navy-400">Filtros ativos:</span>
+            <span className="text-xs text-navy-400">Filtrando por:</span>
             {filtrosAtivos.map(([campo, valor]) => (
               <button
                 key={campo}
                 onClick={() => setFiltros((f) => ({ ...f, [campo]: null }))}
-                className="pill bg-navy-800 text-white"
+                className="pill bg-navy-700 text-white"
               >
                 {valor} <X size={12} />
               </button>
             ))}
-            <button
-              onClick={() => setFiltros({ fonte: null, sexo: null, cidade: null, etapa: null })}
-              className="text-xs text-navy-400 hover:text-navy-700 underline"
-            >
-              limpar tudo
-            </button>
           </div>
         )}
 
@@ -245,7 +294,12 @@ export default function Dashboard() {
               <KpiCard icon={Users} label="Candidatos" value={total} sub={`${porEtapa.length} etapas ativas`} />
               <KpiCard icon={Target} label="Taxa de aprovação" value={`${taxaAprovacao}%`} sub={`${aprovados.length} de ${decididos.length} decididos`} />
               <KpiCard icon={Gauge} label="WPM médio" value={wpmMedio} sub={`${testados.length} testados`} />
-              <KpiCard icon={TrendingUp} label="Precisão média" value={precisaoMedia !== '—' ? `${precisaoMedia}%` : '—'} />
+              <KpiCard
+                icon={TrendingUp}
+                label="Precisão média"
+                value={precisaoMedia !== '—' ? `${precisaoMedia}%` : '—'}
+                sub={`${testados.length} testados`}
+              />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-5 mb-5">
@@ -306,14 +360,18 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Faixa etária">
+              <ChartCard title="Faixa etária" onClear={() => setFiltros((f) => ({ ...f, faixaEtaria: null }))} cleared={!filtros.faixaEtaria}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porFaixaEtaria}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
                     <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" />
                     <Tooltip />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#5A6FA8" />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(d) => alternarFiltro('faixaEtaria', d.name)}>
+                      {porFaixaEtaria.map((e, i) => (
+                        <Cell key={e.name} fill={filtros.faixaEtaria === e.name || !filtros.faixaEtaria ? CORES[i % CORES.length] : '#D8DFF0'} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -344,8 +402,8 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="WPM" stroke="#212F57" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Precisão" stroke="#E8A33D" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="WPM" stroke="#2f4c73" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Precisão" stroke="#a64170" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -357,7 +415,7 @@ export default function Dashboard() {
                     <XAxis dataKey="data" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
                     <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="Candidatos" stroke="#5C8A6E" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Candidatos" stroke="#30cff2" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartCard>

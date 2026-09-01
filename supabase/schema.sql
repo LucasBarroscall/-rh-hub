@@ -141,25 +141,36 @@ create index if not exists idx_candidatos_fonte on public.candidatos (fonte);
 alter table public.profiles enable row level security;
 alter table public.candidatos enable row level security;
 
+-- Função auxiliar que verifica o papel do usuário sem re-acionar a
+-- política de RLS da própria tabela profiles (evita recursão infinita:
+-- uma policy de profiles NUNCA deve fazer um select direto em profiles).
+create or replace function public.is_analista(uid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles where id = uid and role = 'analista'
+  );
+$$;
+
 -- profiles: cada usuário lê o próprio perfil; analista lê e edita todos
 create policy "profiles_select_own_or_analista"
   on public.profiles for select
-  using (
-    auth.uid() = id
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'analista')
-  );
+  using (auth.uid() = id or public.is_analista(auth.uid()));
 
 create policy "profiles_update_analista"
   on public.profiles for update
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'analista'));
+  using (public.is_analista(auth.uid()));
 
 create policy "profiles_insert_analista"
   on public.profiles for insert
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'analista'));
+  with check (public.is_analista(auth.uid()));
 
 create policy "profiles_delete_analista"
   on public.profiles for delete
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'analista'));
+  using (public.is_analista(auth.uid()));
 
 -- candidatos: qualquer visitante (anônimo) pode se CADASTRAR via formulário público
 create policy "candidatos_insert_publico"

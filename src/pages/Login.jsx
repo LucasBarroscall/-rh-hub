@@ -30,14 +30,14 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-navy-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-navy-50 dark:bg-navy-950 px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2.5 justify-center mb-8">
           <div className="h-9 w-9 rounded-lg bg-navy-800 flex items-center justify-center">
             <Users size={19} className="text-amber-400" />
           </div>
           <div className="text-left">
-            <p className="font-display text-lg leading-none text-navy-900">Hub RH</p>
+            <p className="font-display text-lg leading-none text-navy-900 dark:text-white">Hub RH</p>
             <p className="text-[11px] text-navy-400 mt-0.5">People Analytics</p>
           </div>
         </div>

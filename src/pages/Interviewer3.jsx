@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
-import { formatarData, simNaoOuVazio } from '../lib/candidato'
-import { ClipboardCheck, AlertTriangle, MessageCircle } from 'lucide-react'
+import BoolToggle from '../components/BoolToggle'
+import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
+import { ClipboardCheck, AlertTriangle, MessageCircle, X } from 'lucide-react'
 
 const BOOL_FIELDS = [
   ['compareceu_exame', 'Compareceu no exame?'],
@@ -48,7 +49,7 @@ export default function Interviewer3() {
     setCompliance(selecionado?.compliance ?? '')
   }, [selecionado])
 
-  async function atualizar(campos) {
+  async function atualizar(campos, { avancar = false } = {}) {
     if (!selecionado) return
     setSalvando(true)
     const { data, error } = await supabase
@@ -59,13 +60,17 @@ export default function Interviewer3() {
       .single()
     setSalvando(false)
     if (!error) {
-      setSelecionado(data)
+      setSelecionado(avancar && !mostrarTodos && etapa3Completa(data) ? null : data)
       carregar()
     }
   }
 
-  async function decidir(valor) {
-    await atualizar({ decisao_final: valor, decisao_em: new Date().toISOString() })
+  function decidir(valor) {
+    const novoValor = selecionado.decisao_final === valor ? null : valor
+    atualizar(
+      { decisao_final: novoValor, decisao_em: novoValor ? new Date().toISOString() : null },
+      { avancar: true },
+    )
   }
 
   return (
@@ -73,12 +78,12 @@ export default function Interviewer3() {
       <div className="p-6 lg:p-10 max-w-6xl mx-auto">
         <header className="mb-8 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-navy-900">Etapa 3 · Decisão final</h1>
-            <p className="text-navy-500 text-sm mt-1">
+            <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Etapa 3 · Decisão final</h1>
+            <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">
               Candidatos aprovados na entrevista e no teste de digitação.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm text-navy-600">
+          <label className="flex items-center gap-2 text-sm text-navy-600 dark:text-navy-300">
             <input
               type="checkbox"
               checked={mostrarTodos}
@@ -90,7 +95,7 @@ export default function Interviewer3() {
         </header>
 
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
-          <div className="card divide-y divide-navy-100 max-h-[70vh] overflow-y-auto">
+          <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[70vh] overflow-y-auto">
             {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
             {!loading && fila.length === 0 && (
               <p className="p-4 text-sm text-navy-400">Nenhum candidato pronto para decisão.</p>
@@ -100,10 +105,10 @@ export default function Interviewer3() {
                 key={c.id}
                 onClick={() => setSelecionado(c)}
                 className={`w-full text-left px-4 py-3.5 transition-colors ${
-                  selecionado?.id === c.id ? 'bg-navy-50' : 'hover:bg-navy-50/60'
+                  selecionado?.id === c.id ? 'bg-navy-50 dark:bg-navy-800' : 'hover:bg-navy-50/60 dark:hover:bg-navy-800/60'
                 }`}
               >
-                <p className="text-sm font-medium text-navy-900 flex items-center gap-1.5">
+                <p className="text-sm font-medium text-navy-900 dark:text-white flex items-center gap-1.5">
                   {c.nome_completo}
                   {c.alerta_comportamental && <AlertTriangle size={13} className="text-amber-500" />}
                 </p>
@@ -116,20 +121,29 @@ export default function Interviewer3() {
 
           {selecionado ? (
             <div className="card p-6 sm:p-8">
-              <div className="flex items-start gap-3 mb-6">
-                <div className="h-11 w-11 rounded-full bg-navy-800 flex items-center justify-center flex-shrink-0">
-                  <ClipboardCheck size={19} className="text-amber-400" />
+              <div className="flex items-start justify-between gap-3 mb-6">
+                <div className="flex items-start gap-3">
+                  <div className="h-11 w-11 rounded-full bg-navy-700 flex items-center justify-center flex-shrink-0">
+                    <ClipboardCheck size={19} className="text-amber-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white">{selecionado.nome_completo}</h2>
+                    <p className="text-sm text-navy-500 dark:text-navy-400">
+                      {selecionado.telefone} · {selecionado.email}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-navy-900">{selecionado.nome_completo}</h2>
-                  <p className="text-sm text-navy-500">
-                    {selecionado.telefone} · {selecionado.email}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setSelecionado(null)}
+                  title="Fechar sem alterar"
+                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white flex-shrink-0"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
               {selecionado.alerta_comportamental && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-400/10 text-amber-700 px-3.5 py-3 mb-6 text-sm">
+                <div className="flex items-start gap-2 rounded-lg bg-amber-400/10 text-amber-700 dark:text-amber-300 px-3.5 py-3 mb-6 text-sm">
                   <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium">Alerta do Entrevistador 2</p>
@@ -141,7 +155,7 @@ export default function Interviewer3() {
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div>
                   <span className="text-navy-400">Entrevista: </span>
-                  <span className="text-navy-700 font-medium text-sage-600">Aprovado</span>
+                  <span className="text-navy-700 dark:text-navy-200 font-medium text-sage-600">Aprovado</span>
                 </div>
                 <div>
                   <span className="text-navy-400">Teste de digitação: </span>
@@ -151,21 +165,21 @@ export default function Interviewer3() {
                 </div>
                 <div>
                   <span className="text-navy-400">Veículo próprio: </span>
-                  <span className="text-navy-700">{simNaoOuVazio(selecionado.possui_veiculo)}</span>
+                  <span className="text-navy-700 dark:text-navy-200">{simNaoOuVazio(selecionado.possui_veiculo)}</span>
                 </div>
                 <div>
                   <span className="text-navy-400">Ensino superior: </span>
-                  <span className="text-navy-700">{simNaoOuVazio(selecionado.possui_ensino_superior)}</span>
+                  <span className="text-navy-700 dark:text-navy-200">{simNaoOuVazio(selecionado.possui_ensino_superior)}</span>
                 </div>
                 <div>
                   <span className="text-navy-400">Endereço: </span>
-                  <span className="text-navy-700">
+                  <span className="text-navy-700 dark:text-navy-200">
                     {selecionado.endereco}, {selecionado.bairro}, {selecionado.cidade}
                   </span>
                 </div>
               </dl>
 
-              <div className="grid sm:grid-cols-2 gap-4 pt-5 border-t border-navy-100">
+              <div className="grid sm:grid-cols-2 gap-4 pt-5 border-t border-navy-100 dark:border-navy-800">
                 <div>
                   <label className="field-label">Data do exame</label>
                   <input
@@ -188,31 +202,19 @@ export default function Interviewer3() {
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-x-4 gap-y-5 pt-5 mt-5 border-t border-navy-100">
+              <div className="grid sm:grid-cols-2 gap-x-4 gap-y-5 pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
                 {BOOL_FIELDS.map(([campo, label]) => (
-                  <div key={campo}>
-                    <p className="field-label">{label}</p>
-                    <div className="flex gap-2">
-                      {[true, false].map((v) => (
-                        <button
-                          key={String(v)}
-                          disabled={salvando}
-                          onClick={() => atualizar({ [campo]: v })}
-                          className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                            selecionado[campo] === v
-                              ? 'border-navy-800 bg-navy-800 text-white'
-                              : 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50'
-                          }`}
-                        >
-                          {v ? 'Sim' : 'Não'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <BoolToggle
+                    key={campo}
+                    label={label}
+                    value={selecionado[campo]}
+                    onChange={(v) => atualizar({ [campo]: v })}
+                    disabled={salvando}
+                  />
                 ))}
               </div>
 
-              <div className="pt-6 mt-6 border-t border-navy-100">
+              <div className="pt-6 mt-6 border-t border-navy-100 dark:border-navy-800">
                 <p className="field-label mb-2">Decisão final</p>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <button
@@ -221,10 +223,10 @@ export default function Interviewer3() {
                     className={`rounded-lg border px-4 py-3 text-sm font-semibold transition-colors ${
                       selecionado.decisao_final === 'Aprovado'
                         ? 'border-sage-500 bg-sage-500 text-white'
-                        : 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50'
+                        : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
                     }`}
                   >
-                    Aprovar candidato
+                    {selecionado.decisao_final === 'Aprovado' ? 'Aprovado ✓ (clique para desfazer)' : 'Aprovar candidato'}
                   </button>
                   <button
                     disabled={salvando}
@@ -232,10 +234,10 @@ export default function Interviewer3() {
                     className={`rounded-lg border px-4 py-3 text-sm font-semibold transition-colors ${
                       selecionado.decisao_final === 'Reprovado'
                         ? 'border-clay-500 bg-clay-500 text-white'
-                        : 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50'
+                        : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
                     }`}
                   >
-                    Reprovar candidato
+                    {selecionado.decisao_final === 'Reprovado' ? 'Reprovado ✓ (clique para desfazer)' : 'Reprovar candidato'}
                   </button>
                 </div>
 
@@ -246,7 +248,7 @@ export default function Interviewer3() {
                     className={`w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                       selecionado.contatado_whatsapp
                         ? 'border-sage-500 bg-sage-500/10 text-sage-600'
-                        : 'border-navy-100 bg-white text-navy-600 hover:bg-navy-50'
+                        : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
                     }`}
                   >
                     <MessageCircle size={16} />

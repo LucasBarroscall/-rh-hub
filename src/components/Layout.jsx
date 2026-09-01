@@ -7,8 +7,11 @@ import {
   ShieldCheck,
   LogOut,
   Users,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTema } from '../lib/useTema'
 
 const NAV_BY_ROLE = {
   analista: [
@@ -32,6 +35,7 @@ const ROLE_LABEL = {
 
 export default function Layout({ children }) {
   const { profile, signOut } = useAuth()
+  const [escuro, setEscuro] = useTema()
   const navigate = useNavigate()
   const items = NAV_BY_ROLE[profile?.role] || []
 
@@ -41,19 +45,26 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div className="min-h-screen lg:flex">
-      <aside className="lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-navy-100 bg-white">
+    <div className="min-h-screen lg:flex bg-white dark:bg-navy-950">
+      <aside className="lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-navy-100 dark:border-navy-800 bg-white dark:bg-navy-900">
         <div className="flex flex-col lg:h-screen lg:sticky lg:top-0">
-          <div className="px-6 py-6 border-b border-navy-100">
+          <div className="px-6 py-6 border-b border-navy-100 dark:border-navy-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-navy-800 flex items-center justify-center">
+              <div className="h-8 w-8 rounded-lg bg-navy-700 flex items-center justify-center">
                 <Users size={17} className="text-amber-400" />
               </div>
               <div>
-                <p className="font-display text-[17px] leading-none text-navy-900">Hub RH</p>
+                <p className="font-display text-[17px] leading-none text-navy-900 dark:text-white">Hub RH</p>
                 <p className="text-[11px] text-navy-400 mt-0.5">People Analytics</p>
               </div>
             </div>
+            <button
+              onClick={() => setEscuro((e) => !e)}
+              title={escuro ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-navy-400 hover:bg-navy-50 dark:hover:bg-navy-800 hover:text-navy-700 dark:hover:text-white transition-colors"
+            >
+              {escuro ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -65,8 +76,8 @@ export default function Layout({ children }) {
                 className={({ isActive }) =>
                   `flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-navy-800 text-white'
-                      : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900'
+                      ? 'bg-navy-700 text-white'
+                      : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800 hover:text-navy-900 dark:hover:text-white'
                   }`
                 }
               >
@@ -76,13 +87,13 @@ export default function Layout({ children }) {
             ))}
           </nav>
 
-          <div className="px-4 py-4 border-t border-navy-100">
+          <div className="px-4 py-4 border-t border-navy-100 dark:border-navy-800">
             <p className="px-2 text-xs text-navy-400 mb-2 truncate">
               {profile?.nome} · {ROLE_LABEL[profile?.role]}
             </p>
             <button
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800"
             >
               <LogOut size={16} />
               Sair

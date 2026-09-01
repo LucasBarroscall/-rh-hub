@@ -101,11 +101,11 @@ export default function CandidateForm() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-navy-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-navy-50 dark:bg-navy-950 flex items-center justify-center px-4">
         <div className="card max-w-md w-full p-8 text-center">
           <CheckCircle2 className="mx-auto text-sage-500 mb-4" size={44} />
-          <h1 className="text-xl font-semibold text-navy-900 mb-2">Cadastro recebido!</h1>
-          <p className="text-navy-600 text-sm">
+          <h1 className="text-xl font-semibold text-navy-900 dark:text-white mb-2">Cadastro recebido!</h1>
+          <p className="text-navy-600 dark:text-navy-300 text-sm">
             Obrigado, {form.nome_completo.split(' ')[0]}. Seus dados foram registrados e você será
             chamado(a) para a entrevista em breve.
           </p>
@@ -115,21 +115,21 @@ export default function CandidateForm() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-50 py-10 px-4">
+    <div className="min-h-screen bg-navy-50 dark:bg-navy-950 py-10 px-4">
       <div className="max-w-xl mx-auto">
         <div className="flex items-center gap-2.5 justify-center mb-8">
           <div className="h-9 w-9 rounded-lg bg-navy-800 flex items-center justify-center">
             <Users size={19} className="text-amber-400" />
           </div>
           <div className="text-left">
-            <p className="font-display text-lg leading-none text-navy-900">Cadastro de Candidato</p>
+            <p className="font-display text-lg leading-none text-navy-900 dark:text-white">Cadastro de Candidato</p>
             <p className="text-[11px] text-navy-400 mt-0.5">Processo seletivo</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-7">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">
               Como você chegou até nós
             </h2>
             <div>
@@ -161,7 +161,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 uppercase tracking-wide">Dados pessoais</h2>
+            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h2>
             <div>
               <label className="field-label">Nome completo</label>
               <input
@@ -245,7 +245,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 uppercase tracking-wide">Endereço</h2>
+            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h2>
             <div>
               <label className="field-label">Rua / Número</label>
               <input
@@ -273,7 +273,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 uppercase tracking-wide">Disponibilidade</h2>
+            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h2>
             <div>
               <label className="field-label">Horário de trabalho</label>
               <select
@@ -334,7 +334,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 uppercase tracking-wide">Outras informações</h2>
+            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h2>
             <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
             <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao

@@ -84,6 +84,13 @@ mesmas variáveis de ambiente → *Deploy*.)
 - **Dashboard**: KPIs (total, taxa de aprovação, WPM médio, precisão média), funil, origem, sexo, faixa etária, cidade, evolução de WPM/precisão no tempo e candidatos por dia — todos os gráficos clicáveis funcionam como filtros cruzados.
 - **Permissões**: cada entrevistador só acessa a própria página; o analista acessa tudo, incluindo o CRUD completo da base e a gestão de papéis de acesso.
 
+## Aparência
+
+Cores da marca (`tailwind.config.js`): principal `#2f4c73`, secundária
+`#D4D943`, mais `#30cff2`, `#2a438c` e `#a64170`, fundo branco. Tem modo
+escuro completo — o botão de sol/lua fica no topo do menu lateral, e a
+preferência fica salva no navegador de cada pessoa.
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard

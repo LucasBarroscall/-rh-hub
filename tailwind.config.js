@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
@@ -9,31 +10,36 @@ export default {
       },
       colors: {
         ink: '#141A2E',
-        slate: {
-          950: '#0F1526',
-        },
+        // Paleta da marca:
+        // Principal #2f4c73 · Secundária #D4D943 · #30cff2 · #2a438c · #a64170
         navy: {
-          50: '#EEF1F8',
-          100: '#D8DFF0',
-          200: '#B3BFE0',
-          400: '#5A6FA8',
-          600: '#2C3E70',
-          700: '#212F57',
-          800: '#182448',
-          900: '#101733',
+          50: '#F1F4F9',
+          100: '#DFE6F1',
+          200: '#C3D0E4',
+          400: '#6E85AC',
+          700: '#2f4c73', // principal
+          800: '#2a438c',
+          900: '#1B2A45',
+          950: '#0F1729',
         },
         amber: {
-          400: '#E8A33D',
-          500: '#DB9224',
-          600: '#B8791B',
+          400: '#D4D943', // secundária
+          500: '#C3C82F',
+          600: '#9CA023',
+          700: '#767A19',
+        },
+        cyan: {
+          400: '#30cff2',
+          500: '#1AB6D8',
+          600: '#1394B0',
         },
         sage: {
-          500: '#5C8A6E',
-          600: '#446A53',
+          500: '#8B9A1F',
+          600: '#707D19',
         },
         clay: {
-          500: '#C1594B',
-          600: '#A5433A',
+          500: '#a64170',
+          600: '#8a3560',
         },
       },
       boxShadow: {
