@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks } from 'lucide-react'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare } from 'lucide-react'
 
 const ROLES = [
   { id: 'entrevistador1', label: 'Entrevistador 1' },
@@ -53,6 +53,7 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
 
   const campos = [
     ['fonte', 'Fonte'],
+    ['rede_social', 'Rede social'],
     ['nome_indicador', 'Nome de quem indicou'],
     ['nome_completo', 'Nome completo'],
     ['telefone', 'Telefone'],
@@ -68,7 +69,13 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
     ['cep', 'CEP'],
     ['data_entrevista', 'Data da entrevista', 'date'],
     ['compliance', 'Compliance'],
+    ['data_contato_whatsapp', 'Data do contato (WhatsApp)', 'date'],
+    ['data_documentacao_solicitada', 'Data doc. solicitada', 'date'],
+    ['data_envio_documentacao', 'Data envio documentação', 'date'],
     ['data_exame', 'Data do exame', 'date'],
+    ['data_onboarding', 'Data do onboarding', 'date'],
+    ['data_treinamento', 'Data do treinamento', 'date'],
+    ['data_alo', 'Data do Alô', 'date'],
     ['wpm', 'WPM', 'number'],
     ['precisao', 'Precisão (%)', 'number'],
     ['observacoes', 'Observações'],
@@ -135,12 +142,15 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
           </div>
           <div className="grid sm:grid-cols-2 gap-x-4 gap-y-4 mb-4">
             {[
+              ['documentacao_solicitada', 'Documentação solicitada?'],
               ['compareceu_exame', 'Compareceu no exame?'],
               ['aprovado_exame', 'Aprovado no exame?'],
               ['enviou_documentacao', 'Enviou documentação?'],
               ['aprovado_documentacao', 'Aprovado na documentação?'],
               ['compareceu_onboarding', 'Compareceu no onboarding?'],
               ['compareceu_treinamento', 'Compareceu no treinamento?'],
+              ['contatado_whatsapp', 'Contatado via WhatsApp?'],
+              ['compareceu_alo', 'Alô realizado?'],
             ].map(([campo, label]) => (
               <BoolToggle
                 key={campo}
@@ -518,6 +528,7 @@ function AbaAcessos() {
 
 const CAMPOS_LISTA = [
   { chave: 'fonte', label: 'Fonte' },
+  { chave: 'rede_social', label: 'Rede social' },
   { chave: 'sexo', label: 'Sexo' },
   { chave: 'disponibilidade_horario_trabalho', label: 'Horário de trabalho' },
   { chave: 'disponibilidade_horario_treinamento', label: 'Horário de treinamento' },
@@ -620,6 +631,202 @@ function AbaListas() {
   )
 }
 
+function AbaComentarios() {
+  const CAMPOS_COMENTAVEIS = [
+    ['fonte', 'Fonte'],
+    ['rede_social', 'Rede social'],
+    ['nome_indicador', 'Quem indicou'],
+    ['nome_completo', 'Nome completo'],
+    ['data_nascimento', 'Data de nascimento'],
+    ['sexo', 'Sexo'],
+    ['rg', 'RG'],
+    ['cpf', 'CPF'],
+    ['nome_mae', 'Nome da mãe'],
+    ['telefone', 'Telefone'],
+    ['email', 'E-mail'],
+    ['endereco', 'Endereço'],
+    ['bairro', 'Bairro'],
+    ['cidade', 'Cidade'],
+    ['cep', 'CEP'],
+    ['disponibilidade_horario_trabalho', 'Horário de trabalho'],
+    ['disponibilidade_horario_treinamento', 'Horário de treinamento'],
+    ['disponibilidade_jornada', 'Jornada de trabalho'],
+    ['possui_veiculo', 'Possui veículo próprio'],
+    ['possui_ensino_superior', 'Possui ensino superior'],
+    ['concorda_turno_treinamento', 'Concorda com turno de treinamento'],
+    ['observacoes', 'Observações'],
+  ]
+
+  const [comentarios, setComentarios] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [salvandoCampo, setSalvandoCampo] = useState(null)
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase.from('campo_comentarios').select('*')
+    if (!error) {
+      const mapa = {}
+      data.forEach((c) => (mapa[c.campo] = c.comentario))
+      setComentarios(mapa)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  async function salvar(campo) {
+    setSalvandoCampo(campo)
+    const texto = (comentarios[campo] || '').trim()
+    if (texto) {
+      await supabase.from('campo_comentarios').upsert({ campo, comentario: texto, atualizado_em: new Date().toISOString() })
+    } else {
+      await supabase.from('campo_comentarios').delete().eq('campo', campo)
+    }
+    setSalvandoCampo(null)
+  }
+
+  return (
+    <div>
+      <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
+        <MessageSquare size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
+        <p>
+          O texto abaixo de cada campo aparece para quem estiver preenchendo o cadastro do candidato
+          (formulário público e "Adicionar candidato"). Deixe em branco e salve para remover.
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-navy-400">Carregando…</p>
+      ) : (
+        <div className="space-y-3 max-w-2xl">
+          {CAMPOS_COMENTAVEIS.map(([campo, label]) => (
+            <div key={campo} className="card p-4">
+              <label className="field-label">{label}</label>
+              <div className="flex gap-2">
+                <input
+                  className="field-input"
+                  placeholder="Sem comentário"
+                  value={comentarios[campo] || ''}
+                  onChange={(e) => setComentarios((c) => ({ ...c, [campo]: e.target.value }))}
+                />
+                <button
+                  onClick={() => salvar(campo)}
+                  disabled={salvandoCampo === campo}
+                  className="btn-secondary flex-shrink-0"
+                >
+                  {salvandoCampo === campo ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ROTULO_ACAO = { INSERT: 'Criação', UPDATE: 'Alteração', DELETE: 'Exclusão' }
+const ROTULO_TABELA = { candidatos: 'Candidato', profiles: 'Acesso', opcoes_lista: 'Lista de opções' }
+
+function AbaLog() {
+  const [linhas, setLinhas] = useState([])
+  const [perfis, setPerfis] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [filtroTabela, setFiltroTabela] = useState('')
+
+  useEffect(() => {
+    async function carregar() {
+      setLoading(true)
+      const [{ data: logData }, { data: perfilData }] = await Promise.all([
+        supabase.from('log_alteracoes').select('*').order('criado_em', { ascending: false }).limit(300),
+        supabase.from('profiles').select('id, nome'),
+      ])
+      const mapaPerfis = {}
+      ;(perfilData || []).forEach((p) => (mapaPerfis[p.id] = p.nome))
+      setPerfis(mapaPerfis)
+      setLinhas(logData || [])
+      setLoading(false)
+    }
+    carregar()
+  }, [])
+
+  const filtradas = filtroTabela ? linhas.filter((l) => l.tabela === filtroTabela) : linhas
+
+  function nomeDoRegistro(l) {
+    const dados = l.dados_depois || l.dados_antes
+    return dados?.nome_completo || dados?.nome || dados?.valor || l.registro_id?.slice(0, 8)
+  }
+
+  return (
+    <div>
+      <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 mb-5 w-fit">
+        {[
+          ['', 'Tudo'],
+          ['candidatos', 'Candidatos'],
+          ['profiles', 'Acessos'],
+          ['opcoes_lista', 'Listas'],
+        ].map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setFiltroTabela(v)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              filtroTabela === v ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-navy-100 dark:border-navy-800 text-left text-navy-400 text-xs uppercase tracking-wide">
+              <th className="px-4 py-3">Quando</th>
+              <th className="px-4 py-3">Quem</th>
+              <th className="px-4 py-3">Ação</th>
+              <th className="px-4 py-3">Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-navy-400">
+                  Carregando…
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              filtradas.map((l) => (
+                <tr key={l.id} className="border-b border-navy-50 dark:border-navy-800/60 last:border-0">
+                  <td className="px-4 py-3 text-navy-500 dark:text-navy-400 whitespace-nowrap">
+                    {new Date(l.criado_em).toLocaleString('pt-BR')}
+                  </td>
+                  <td className="px-4 py-3 text-navy-700 dark:text-navy-200">{perfis[l.usuario_id] || 'Sistema'}</td>
+                  <td className="px-4 py-3">
+                    <span className="pill bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-200">
+                      {ROTULO_ACAO[l.acao]} · {ROTULO_TABELA[l.tabela] || l.tabela}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-navy-600 dark:text-navy-300">{nomeDoRegistro(l)}</td>
+                </tr>
+              ))}
+            {!loading && filtradas.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-navy-400">
+                  Nenhum registro encontrado.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [aba, setAba] = useState('candidatos')
 
@@ -636,7 +843,7 @@ export default function Admin() {
           </div>
         </header>
 
-        <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 mb-6 w-fit">
+        <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 mb-6 w-fit flex-wrap">
           <TabButton active={aba === 'candidatos'} onClick={() => setAba('candidatos')}>
             Candidatos
           </TabButton>
@@ -646,11 +853,19 @@ export default function Admin() {
           <TabButton active={aba === 'listas'} onClick={() => setAba('listas')}>
             Listas
           </TabButton>
+          <TabButton active={aba === 'comentarios'} onClick={() => setAba('comentarios')}>
+            Comentários
+          </TabButton>
+          <TabButton active={aba === 'log'} onClick={() => setAba('log')}>
+            Log de alterações
+          </TabButton>
         </div>
 
         {aba === 'candidatos' && <AbaCandidatos />}
         {aba === 'acessos' && <AbaAcessos />}
         {aba === 'listas' && <AbaListas />}
+        {aba === 'comentarios' && <AbaComentarios />}
+        {aba === 'log' && <AbaLog />}
       </div>
     </Layout>
   )

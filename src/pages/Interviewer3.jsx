@@ -2,17 +2,29 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
+import DuplicidadeModal from '../components/DuplicidadeModal'
+import { useDuplicidade } from '../lib/useDuplicidade'
 import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
 import { ClipboardCheck, AlertTriangle, MessageCircle, X } from 'lucide-react'
 
-const BOOL_FIELDS = [
-  ['compareceu_exame', 'Compareceu no exame?'],
-  ['aprovado_exame', 'Aprovado no exame?'],
-  ['enviou_documentacao', 'Enviou documentação?'],
-  ['aprovado_documentacao', 'Aprovado na documentação?'],
-  ['compareceu_onboarding', 'Compareceu no onboarding?'],
-  ['compareceu_treinamento', 'Compareceu no treinamento?'],
-]
+// Campo booleano + campo de data que aparece quando marcado "Sim".
+function CampoComData({ label, valor, data, onMudarValor, onMudarData, disabled }) {
+  return (
+    <div>
+      <BoolToggle label={label} value={valor} onChange={onMudarValor} disabled={disabled} />
+      {valor === true && (
+        <div className="mt-2">
+          <input
+            type="date"
+            className="field-input py-1.5 text-sm"
+            value={data ?? ''}
+            onChange={(e) => onMudarData(e.target.value || null)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Interviewer3() {
   const [fila, setFila] = useState([])
@@ -22,6 +34,7 @@ export default function Interviewer3() {
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [dataExame, setDataExame] = useState('')
   const [compliance, setCompliance] = useState('')
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -71,6 +84,13 @@ export default function Interviewer3() {
       { decisao_final: novoValor, decisao_em: novoValor ? new Date().toISOString() : null },
       { avancar: true },
     )
+  }
+
+  function marcarContato(v) {
+    atualizar({
+      contatado_whatsapp: v,
+      data_contato_whatsapp: v ? new Date().toISOString().slice(0, 10) : null,
+    })
   }
 
   return (
@@ -127,7 +147,10 @@ export default function Interviewer3() {
                     <ClipboardCheck size={19} className="text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white">{selecionado.nome_completo}</h2>
+                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-1.5">
+                      {selecionado.nome_completo}
+                      {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
+                    </h2>
                     <p className="text-sm text-navy-500 dark:text-navy-400">
                       {selecionado.telefone} · {selecionado.email}
                     </p>
@@ -179,44 +202,127 @@ export default function Interviewer3() {
                 </div>
               </dl>
 
-              <div className="grid sm:grid-cols-2 gap-4 pt-5 border-t border-navy-100 dark:border-navy-800">
-                <div>
-                  <label className="field-label">Data do exame</label>
+              {/* 1. Contato via WhatsApp */}
+              <div className="pt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-2">1. Contato via WhatsApp</p>
+                <button
+                  disabled={salvando}
+                  onClick={() => marcarContato(!selecionado.contatado_whatsapp)}
+                  className={`w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    selecionado.contatado_whatsapp
+                      ? 'border-sage-500 bg-sage-500/10 text-sage-600'
+                      : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
+                  }`}
+                >
+                  <MessageCircle size={16} />
+                  {selecionado.contatado_whatsapp ? 'Contato já feito' : 'Marcar como contatado via WhatsApp'}
+                </button>
+                {selecionado.contatado_whatsapp && (
                   <input
                     type="date"
-                    className="field-input"
-                    value={dataExame}
-                    onChange={(e) => setDataExame(e.target.value)}
-                    onBlur={() => atualizar({ data_exame: dataExame || null })}
+                    className="field-input py-1.5 text-sm mt-2"
+                    value={selecionado.data_contato_whatsapp ?? ''}
+                    onChange={(e) => atualizar({ data_contato_whatsapp: e.target.value || null })}
                   />
+                )}
+              </div>
+
+              {/* 2. Documentação */}
+              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-3">2. Documentação</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <CampoComData
+                    label="Documentação solicitada?"
+                    valor={selecionado.documentacao_solicitada}
+                    data={selecionado.data_documentacao_solicitada}
+                    onMudarValor={(v) => atualizar({ documentacao_solicitada: v, data_documentacao_solicitada: v ? new Date().toISOString().slice(0, 10) : null })}
+                    onMudarData={(d) => atualizar({ data_documentacao_solicitada: d })}
+                    disabled={salvando}
+                  />
+                  <CampoComData
+                    label="Enviou documentação?"
+                    valor={selecionado.enviou_documentacao}
+                    data={selecionado.data_envio_documentacao}
+                    onMudarValor={(v) => atualizar({ enviou_documentacao: v, data_envio_documentacao: v ? new Date().toISOString().slice(0, 10) : null })}
+                    onMudarData={(d) => atualizar({ data_envio_documentacao: d })}
+                    disabled={salvando}
+                  />
+                  <BoolToggle
+                    label="Aprovado na documentação?"
+                    value={selecionado.aprovado_documentacao}
+                    onChange={(v) => atualizar({ aprovado_documentacao: v })}
+                    disabled={salvando}
+                    semantic
+                  />
+                  <div>
+                    <label className="field-label">Compliance</label>
+                    <input
+                      className="field-input"
+                      value={compliance}
+                      onChange={(e) => setCompliance(e.target.value)}
+                      onBlur={() => atualizar({ compliance })}
+                      placeholder="Observação do compliance"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="field-label">Compliance</label>
-                  <input
-                    className="field-input"
-                    value={compliance}
-                    onChange={(e) => setCompliance(e.target.value)}
-                    onBlur={() => atualizar({ compliance })}
-                    placeholder="Observação do compliance"
+              </div>
+
+              {/* 3. Exame */}
+              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-3">3. Exame</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="field-label">Data do exame</label>
+                    <input
+                      type="date"
+                      className="field-input"
+                      value={dataExame}
+                      onChange={(e) => setDataExame(e.target.value)}
+                      onBlur={() => atualizar({ data_exame: dataExame || null })}
+                    />
+                  </div>
+                  <BoolToggle
+                    label="Compareceu no exame?"
+                    value={selecionado.compareceu_exame}
+                    onChange={(v) => atualizar({ compareceu_exame: v })}
+                    disabled={salvando}
+                  />
+                  <BoolToggle
+                    label="Aprovado no exame?"
+                    value={selecionado.aprovado_exame}
+                    onChange={(v) => atualizar({ aprovado_exame: v })}
+                    disabled={salvando}
+                    semantic
                   />
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-x-4 gap-y-5 pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
-                {BOOL_FIELDS.map(([campo, label]) => (
-                  <BoolToggle
-                    key={campo}
-                    label={label}
-                    value={selecionado[campo]}
-                    onChange={(v) => atualizar({ [campo]: v })}
+              {/* 4. Onboarding e treinamento */}
+              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-3">4. Onboarding e treinamento</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <CampoComData
+                    label="Compareceu no onboarding?"
+                    valor={selecionado.compareceu_onboarding}
+                    data={selecionado.data_onboarding}
+                    onMudarValor={(v) => atualizar({ compareceu_onboarding: v, data_onboarding: v ? new Date().toISOString().slice(0, 10) : null })}
+                    onMudarData={(d) => atualizar({ data_onboarding: d })}
                     disabled={salvando}
                   />
-                ))}
+                  <CampoComData
+                    label="Compareceu no treinamento?"
+                    valor={selecionado.compareceu_treinamento}
+                    data={selecionado.data_treinamento}
+                    onMudarValor={(v) => atualizar({ compareceu_treinamento: v, data_treinamento: v ? new Date().toISOString().slice(0, 10) : null })}
+                    onMudarData={(d) => atualizar({ data_treinamento: d })}
+                    disabled={salvando}
+                  />
+                </div>
               </div>
 
               <div className="pt-6 mt-6 border-t border-navy-100 dark:border-navy-800">
-                <p className="field-label mb-2">Decisão final</p>
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <p className="field-label mb-2">Decisão final (Entrega para Treinamento)</p>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     disabled={salvando}
                     onClick={() => decidir('Aprovado')}
@@ -240,23 +346,9 @@ export default function Interviewer3() {
                     {selecionado.decisao_final === 'Reprovado' ? 'Reprovado ✓ (clique para desfazer)' : 'Reprovar candidato'}
                   </button>
                 </div>
-
-                {selecionado.decisao_final === 'Aprovado' && (
-                  <button
-                    disabled={salvando}
-                    onClick={() => atualizar({ contatado_whatsapp: !selecionado.contatado_whatsapp })}
-                    className={`w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                      selecionado.contatado_whatsapp
-                        ? 'border-sage-500 bg-sage-500/10 text-sage-600'
-                        : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
-                    }`}
-                  >
-                    <MessageCircle size={16} />
-                    {selecionado.contatado_whatsapp
-                      ? 'Contato via WhatsApp já feito'
-                      : 'Marcar como contatado via WhatsApp'}
-                  </button>
-                )}
+                <p className="text-xs text-navy-400 mt-2">
+                  As etapas de Alô (entrega final) ficam com o analista de People Analytics, em Administração.
+                </p>
               </div>
             </div>
           ) : (
@@ -265,6 +357,18 @@ export default function Interviewer3() {
             </div>
           )}
         </div>
+
+        {mostrarDuplicidade && (
+          <DuplicidadeModal
+            candidatoAtual={selecionado}
+            duplicatas={duplicatas}
+            onFechar={dispensar}
+            onRepetido={() => {
+              dispensar()
+              carregar()
+            }}
+          />
+        )}
       </div>
     </Layout>
   )

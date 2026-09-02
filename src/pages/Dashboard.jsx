@@ -14,11 +14,12 @@ import {
   PieChart,
   Pie,
 } from 'recharts'
-import { X, Users, TrendingUp, Gauge, Target } from 'lucide-react'
+import { X, Users, TrendingUp, Gauge, Target, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DateRangePicker from '../components/DateRangePicker'
 import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
+import { ETAPAS_FUNIL, MARCOS_FUNIL, formatarNumero, formatarDuracaoCurta, formatarDuracaoLonga } from '../lib/status'
 
 const CORES = ['#2f4c73', '#D4D943', '#30cff2', '#a64170', '#2a438c', '#7c93b8']
 
@@ -178,12 +179,15 @@ export default function Dashboard() {
   const aprovados = filtrados.filter((c) => c.decisao_final === 'Aprovado')
   const taxaAprovacao = decididos.length ? Math.round((aprovados.length / decididos.length) * 100) : 0
   const testados = filtrados.filter((c) => c.teste_realizado)
-  const wpmMedio = testados.length
-    ? (testados.reduce((s, c) => s + Number(c.wpm || 0), 0) / testados.length).toFixed(1)
-    : '—'
-  const precisaoMedia = testados.length
-    ? (testados.reduce((s, c) => s + Number(c.precisao || 0), 0) / testados.length).toFixed(1)
-    : '—'
+  const wpmMedioNum = testados.length ? testados.reduce((s, c) => s + Number(c.wpm || 0), 0) / testados.length : null
+  const wpmMedio = wpmMedioNum != null ? formatarNumero(wpmMedioNum, 1) : '—'
+  const precisaoMediaNum = testados.length ? testados.reduce((s, c) => s + Number(c.precisao || 0), 0) / testados.length : null
+  const precisaoMedia = precisaoMediaNum != null ? formatarNumero(precisaoMediaNum, 1) : '—'
+
+  const comTempoPreenchimento = filtrados.filter((c) => c.tempo_preenchimento_segundos != null)
+  const tempoPreenchimentoMedio = comTempoPreenchimento.length
+    ? comTempoPreenchimento.reduce((s, c) => s + c.tempo_preenchimento_segundos, 0) / comTempoPreenchimento.length
+    : null
 
   // ---- Agregações para gráficos ----
   function contarPor(campo) {
@@ -251,6 +255,57 @@ export default function Dashboard() {
   }, [filtrados, granularidade])
 
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v)
+
+  // ---- Funil de conversão (contagem cumulativa por marco) ----
+  const etapasComData = ETAPAS_FUNIL.filter((e) => e.dataCampo)
+
+  const funilMarcos = useMemo(() => {
+    return MARCOS_FUNIL.map((chave) => {
+      const etapa = ETAPAS_FUNIL.find((e) => e.chave === chave)
+      const value = filtrados.filter((c) => etapa.alcancado(c)).length
+      return { name: etapa.label, value }
+    })
+  }, [filtrados])
+
+  const temposEntreEtapas = useMemo(() => {
+    const resultados = []
+    for (let i = 0; i < etapasComData.length - 1; i++) {
+      const atual = etapasComData[i]
+      const proxima = etapasComData[i + 1]
+      const deltas = []
+      filtrados.forEach((c) => {
+        const d1 = c[atual.dataCampo]
+        const d2 = c[proxima.dataCampo]
+        if (d1 && d2) {
+          const t1 = new Date(d1).getTime()
+          const t2 = new Date(d2).getTime()
+          if (t2 >= t1) deltas.push(t2 - t1)
+        }
+      })
+      if (deltas.length) {
+        resultados.push({
+          de: atual.label,
+          para: proxima.label,
+          media: deltas.reduce((a, b) => a + b, 0) / deltas.length,
+          n: deltas.length,
+        })
+      }
+    }
+    return resultados
+  }, [filtrados])
+
+  const tempoTotalCadastroAteAlo = useMemo(() => {
+    const deltas = []
+    filtrados.forEach((c) => {
+      if (c.created_at && c.data_alo) {
+        const t1 = new Date(c.created_at).getTime()
+        const t2 = new Date(c.data_alo).getTime()
+        if (t2 >= t1) deltas.push(t2 - t1)
+      }
+    })
+    if (!deltas.length) return null
+    return deltas.reduce((a, b) => a + b, 0) / deltas.length
+  }, [filtrados])
 
   return (
     <Layout>
@@ -327,8 +382,8 @@ export default function Dashboard() {
           <p className="text-navy-400 text-sm">Carregando dados…</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <KpiCard icon={Users} label="Candidatos" value={total} sub={`${porEtapa.length} etapas ativas`} />
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+              <KpiCard icon={Users} label="Candidatos" value={formatarNumero(total)} sub={`${porEtapa.length} etapas ativas`} />
               <KpiCard icon={Target} label="Taxa de aprovação" value={`${taxaAprovacao}%`} sub={`${aprovados.length} de ${decididos.length} decididos`} />
               <KpiCard icon={Gauge} label="WPM médio" value={wpmMedio} sub={`${testados.length} testados`} />
               <KpiCard
@@ -336,6 +391,12 @@ export default function Dashboard() {
                 label="Precisão média"
                 value={precisaoMedia !== '—' ? `${precisaoMedia}%` : '—'}
                 sub={`${testados.length} testados`}
+              />
+              <KpiCard
+                icon={Clock}
+                label="Tempo médio de cadastro"
+                value={tempoPreenchimentoMedio != null ? formatarDuracaoCurta(tempoPreenchimentoMedio) : '—'}
+                sub={`${comTempoPreenchimento.length} medidos`}
               />
             </div>
 
@@ -428,6 +489,63 @@ export default function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-5 mb-5">
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">
+                  Funil de conversão — onde estamos perdendo candidatos
+                </h3>
+                <div className="space-y-2.5">
+                  {funilMarcos.map((f, i) => {
+                    const max = funilMarcos[0].value || 1
+                    const pct = Math.round((f.value / max) * 100)
+                    const pctAnterior =
+                      i > 0 && funilMarcos[i - 1].value ? Math.round((f.value / funilMarcos[i - 1].value) * 100) : null
+                    return (
+                      <div key={f.name}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-navy-700 dark:text-navy-200 font-medium">{f.name}</span>
+                          <span className="text-navy-400">
+                            {formatarNumero(f.value)} · {pct}%
+                            {pctAnterior != null ? ` (${pctAnterior}% da etapa anterior)` : ''}
+                          </span>
+                        </div>
+                        <div className="h-3 rounded-full bg-navy-50 dark:bg-navy-800 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: CORES[i % CORES.length] }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">Tempo médio entre etapas</h3>
+                {tempoTotalCadastroAteAlo != null && (
+                  <p className="text-sm text-navy-600 dark:text-navy-300 mb-4 pb-4 border-b border-navy-100 dark:border-navy-800">
+                    Do cadastro até o Alô, em média:{' '}
+                    <strong className="text-navy-900 dark:text-white">{formatarDuracaoLonga(tempoTotalCadastroAteAlo)}</strong>
+                  </p>
+                )}
+                <div className="space-y-2 text-sm">
+                  {temposEntreEtapas.map((t) => (
+                    <div
+                      key={`${t.de}-${t.para}`}
+                      className="flex items-center justify-between border-b border-navy-50 dark:border-navy-800/60 last:border-0 py-1.5"
+                    >
+                      <span className="text-navy-600 dark:text-navy-300">
+                        {t.de} → {t.para}
+                      </span>
+                      <span className="text-navy-800 dark:text-navy-100 font-medium">{formatarDuracaoLonga(t.media)}</span>
+                    </div>
+                  ))}
+                  {temposEntreEtapas.length === 0 && <p className="text-navy-400 text-sm">Ainda sem dados suficientes.</p>}
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end mb-3">

@@ -105,6 +105,38 @@ As opções desses campos do formulário do candidato vêm do banco (tabela
 - **Telefone**: formatado sozinho no padrão `(00) 0 0000-0000`.
 - **E-mail**: campo `type="email"` do navegador.
 
+## Sequência oficial do funil
+
+Cadastro → Entrevista → Teste de Digitação → Contato no WhatsApp →
+Documentação Solicitada → Documentação Enviada → Documentação Aprovada →
+Data do Exame (fica "Exame atrasado" se passar da data sem comparecimento) →
+Compareceu no Exame → Aprovado no Exame → Data do Onboarding → Onboarding →
+Data do Treinamento → Treinamento → Data do Alô → Alô → **Entrega Realizada**.
+
+Essa sequência mora em `src/lib/status.js` — é a fonte única usada pelo
+status exibido nas listas, pelo funil do dashboard e pelo tempo entre etapas.
+
+## Permissões hierárquicas
+
+- Entrevistador 1: só a Etapa 1
+- Entrevistador 2: Etapas 1 e 2
+- Entrevistador 3: Etapas 1, 2 e 3
+- Analista: tudo, incluindo Administração (Alô e entrega final ficam com o analista)
+
+## Log de alterações
+
+Toda alteração em candidatos, acessos e listas é registrada automaticamente
+(quem, quando, antes/depois) via trigger no banco — visível em
+**Administração → Log de alterações**. Não precisa de nenhum código a mais
+no site para isso continuar funcionando.
+
+## CPF duplicado
+
+Ao abrir um candidato em qualquer etapa (1, 2 ou 3), o sistema verifica se o
+CPF já apareceu antes e mostra um alerta com o histórico. É preciso
+confirmar "seguir normalmente" ou "repetir resultado mais recente" para
+continuar.
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard

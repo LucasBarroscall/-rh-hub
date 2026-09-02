@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import DuplicidadeModal from '../components/DuplicidadeModal'
+import { useDuplicidade } from '../lib/useDuplicidade'
 import { formatarData, etapa2Completa } from '../lib/candidato'
 import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2 } from 'lucide-react'
 
@@ -14,6 +16,7 @@ export default function Interviewer2() {
   const [wpm, setWpm] = useState('')
   const [precisao, setPrecisao] = useState('')
   const [alerta, setAlerta] = useState('')
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -134,7 +137,10 @@ export default function Interviewer2() {
                     <Keyboard size={19} className="text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white">{selecionado.nome_completo}</h2>
+                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-1.5">
+                      {selecionado.nome_completo}
+                      {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
+                    </h2>
                     <p className="text-sm text-navy-500 dark:text-navy-400">Aprovado(a) na entrevista</p>
                   </div>
                 </div>
@@ -251,6 +257,18 @@ export default function Interviewer2() {
             </div>
           )}
         </div>
+
+        {mostrarDuplicidade && (
+          <DuplicidadeModal
+            candidatoAtual={selecionado}
+            duplicatas={duplicatas}
+            onFechar={dispensar}
+            onRepetido={() => {
+              dispensar()
+              carregar()
+            }}
+          />
+        )}
       </div>
     </Layout>
   )

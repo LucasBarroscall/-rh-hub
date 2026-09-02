@@ -276,3 +276,138 @@ insert into public.opcoes_lista (campo, valor, ordem) values
   ('disponibilidade_jornada', 'Escala 6x1', 3),
   ('disponibilidade_jornada', 'Escala 5x2', 4)
 on conflict (campo, valor) do nothing;
+
+-- =========================================================
+-- RODADA 3 — colunas de rastreio de etapas/datas, log de
+-- auditoria, comentários por campo e rede social (sub-opção
+-- de Fonte = Redes Sociais).
+-- =========================================================
+
+-- ---------------------------------------------------------
+-- Novas colunas em candidatos
+-- ---------------------------------------------------------
+alter table public.candidatos add column if not exists tempo_preenchimento_segundos int;
+alter table public.candidatos add column if not exists rede_social text;
+alter table public.candidatos add column if not exists documentacao_solicitada boolean;
+alter table public.candidatos add column if not exists data_documentacao_solicitada date;
+alter table public.candidatos add column if not exists data_envio_documentacao date;
+alter table public.candidatos add column if not exists data_onboarding date;
+alter table public.candidatos add column if not exists data_treinamento date;
+alter table public.candidatos add column if not exists data_contato_whatsapp date;
+alter table public.candidatos add column if not exists data_alo date;
+
+comment on column public.candidatos.tempo_preenchimento_segundos is 'Tempo (segundos) que o candidato levou para preencher o formulário — medido no navegador, não exibido a ele mesmo.';
+
+-- ---------------------------------------------------------
+-- LOG DE ALTERAÇÕES (auditoria automática via trigger)
+-- ---------------------------------------------------------
+create table if not exists public.log_alteracoes (
+  id uuid primary key default gen_random_uuid(),
+  tabela text not null,
+  registro_id uuid,
+  acao text not null check (acao in ('INSERT', 'UPDATE', 'DELETE')),
+  usuario_id uuid,
+  dados_antes jsonb,
+  dados_depois jsonb,
+  criado_em timestamptz not null default now()
+);
+
+comment on table public.log_alteracoes is 'Auditoria automática: toda alteração em candidatos/profiles/opcoes_lista gera uma linha aqui, com quem fez e quando.';
+
+alter table public.log_alteracoes enable row level security;
+
+create policy "log_select_analista"
+  on public.log_alteracoes for select
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+create or replace function public.registrar_log()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.log_alteracoes (tabela, registro_id, acao, usuario_id, dados_antes, dados_depois)
+  values (
+    TG_TABLE_NAME,
+    coalesce(NEW.id, OLD.id),
+    TG_OP,
+    auth.uid(),
+    case when TG_OP != 'INSERT' then to_jsonb(OLD) else null end,
+    case when TG_OP != 'DELETE' then to_jsonb(NEW) else null end
+  );
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists trg_log_candidatos on public.candidatos;
+create trigger trg_log_candidatos
+  after insert or update or delete on public.candidatos
+  for each row execute function public.registrar_log();
+
+drop trigger if exists trg_log_profiles on public.profiles;
+create trigger trg_log_profiles
+  after insert or update or delete on public.profiles
+  for each row execute function public.registrar_log();
+
+drop trigger if exists trg_log_opcoes on public.opcoes_lista;
+create trigger trg_log_opcoes
+  after insert or update or delete on public.opcoes_lista
+  for each row execute function public.registrar_log();
+
+-- ---------------------------------------------------------
+-- COMENTÁRIOS POR CAMPO (o analista deixa uma observação
+-- visível para quem preenche aquele campo)
+-- ---------------------------------------------------------
+create table if not exists public.campo_comentarios (
+  campo text primary key,
+  comentario text not null,
+  atualizado_em timestamptz not null default now()
+);
+
+comment on table public.campo_comentarios is 'Comentário/instrução opcional do analista, mostrado abaixo do campo correspondente nos formulários.';
+
+alter table public.campo_comentarios enable row level security;
+
+create policy "campo_comentarios_select_publico"
+  on public.campo_comentarios for select
+  to anon, authenticated
+  using (true);
+
+create policy "campo_comentarios_upsert_analista"
+  on public.campo_comentarios for insert
+  to authenticated
+  with check (public.is_analista(auth.uid()));
+
+create policy "campo_comentarios_update_analista"
+  on public.campo_comentarios for update
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+create policy "campo_comentarios_delete_analista"
+  on public.campo_comentarios for delete
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+-- ---------------------------------------------------------
+-- Rede social (sub-opção de Fonte = "Redes Sociais")
+-- ---------------------------------------------------------
+alter table public.opcoes_lista drop constraint if exists opcoes_lista_campo_check;
+alter table public.opcoes_lista add constraint opcoes_lista_campo_check check (
+  campo in (
+    'fonte',
+    'sexo',
+    'disponibilidade_horario_trabalho',
+    'disponibilidade_horario_treinamento',
+    'disponibilidade_jornada',
+    'rede_social'
+  )
+);
+
+insert into public.opcoes_lista (campo, valor, ordem) values
+  ('rede_social', 'Instagram', 1),
+  ('rede_social', 'X (antigo Twitter)', 2),
+  ('rede_social', 'Facebook', 3),
+  ('rede_social', 'LinkedIn', 4)
+on conflict (campo, valor) do nothing;

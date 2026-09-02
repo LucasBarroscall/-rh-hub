@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
+import { useComentarios } from '../lib/useComentarios'
+import ComentarioCampo from './ComentarioCampo'
 import { maskRG, maskCPF, maskTelefone, validarCPF } from '../lib/formatters'
 
 const CAMPOS_INICIAIS = {
   fonte: '',
+  rede_social: '',
   nome_indicador: '',
   nome_completo: '',
   telefone: '',
@@ -54,6 +57,7 @@ function SimNao({ label, value, onChange, name }) {
 
 export default function AddCandidateModal({ onClose, onSaved }) {
   const { opcoes } = useOpcoes()
+  const comentarios = useComentarios()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -74,6 +78,10 @@ export default function AddCandidateModal({ onClose, onSaved }) {
       setError('Informe o nome de quem indicou, ou selecione outra origem.')
       return
     }
+    if (form.fonte === 'Redes Sociais' && form.rede_social === '') {
+      setError('Selecione de qual rede social o candidato veio.')
+      return
+    }
     if (!validarCPF(form.cpf)) {
       setError('O CPF informado não é válido. Confira os números digitados.')
       return
@@ -83,6 +91,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
     const payload = {
       ...form,
       nome_indicador: form.fonte === 'Indicação' ? form.nome_indicador || null : 'Ninguém',
+      rede_social: form.fonte === 'Redes Sociais' ? form.rede_social || null : null,
       data_nascimento: form.data_nascimento || null,
     }
     const { error } = await supabase.from('candidatos').insert(payload)
@@ -120,7 +129,29 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   </option>
                 ))}
               </select>
+              <ComentarioCampo texto={comentarios.fonte} />
             </div>
+            {form.fonte === 'Redes Sociais' && (
+              <div>
+                <label className="field-label">Qual rede social?</label>
+                <select
+                  name="rede_social"
+                  required
+                  className="field-select"
+                  value={form.rede_social}
+                  onChange={handleChange}
+                >
+                  <option value="" disabled>
+                    Selecione
+                  </option>
+                  {(opcoes.rede_social || []).map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {form.fonte === 'Indicação' && (
               <div>
                 <label className="field-label">Quem indicou?</label>

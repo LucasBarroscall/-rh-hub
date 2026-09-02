@@ -22,8 +22,15 @@ const NAV_BY_ROLE = {
     { to: '/admin', label: 'Administração', icon: ShieldCheck },
   ],
   entrevistador1: [{ to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck }],
-  entrevistador2: [{ to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard }],
-  entrevistador3: [{ to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck }],
+  entrevistador2: [
+    { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
+    { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
+  ],
+  entrevistador3: [
+    { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
+    { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
+    { to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck },
+  ],
 }
 
 const ROLE_LABEL = {

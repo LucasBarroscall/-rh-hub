@@ -3,8 +3,10 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
+import DuplicidadeModal from '../components/DuplicidadeModal'
+import { useDuplicidade } from '../lib/useDuplicidade'
 import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa } from '../lib/candidato'
-import { UserCheck, Phone, MapPin, Calendar, X, UserPlus } from 'lucide-react'
+import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle } from 'lucide-react'
 
 export default function Interviewer1() {
   const [fila, setFila] = useState([])
@@ -13,6 +15,7 @@ export default function Interviewer1() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -116,7 +119,10 @@ export default function Interviewer1() {
                     <UserCheck size={19} className="text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white">{selecionado.nome_completo}</h2>
+                    <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-1.5">
+                      {selecionado.nome_completo}
+                      {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
+                    </h2>
                     <p className="text-sm text-navy-500 dark:text-navy-400">
                       {selecionado.idade ? `${selecionado.idade} anos · ` : ''}
                       {selecionado.sexo}
@@ -221,6 +227,18 @@ export default function Interviewer1() {
             onClose={() => setMostrarAdicionar(false)}
             onSaved={() => {
               setMostrarAdicionar(false)
+              carregar()
+            }}
+          />
+        )}
+
+        {mostrarDuplicidade && (
+          <DuplicidadeModal
+            candidatoAtual={selecionado}
+            duplicatas={duplicatas}
+            onFechar={dispensar}
+            onRepetido={() => {
+              dispensar()
               carregar()
             }}
           />

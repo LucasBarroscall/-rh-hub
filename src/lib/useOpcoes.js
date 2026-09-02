@@ -10,6 +10,7 @@ export const CAMPOS_COM_OPCOES = [
   'disponibilidade_horario_trabalho',
   'disponibilidade_horario_treinamento',
   'disponibilidade_jornada',
+  'rede_social',
 ]
 
 export function useOpcoes() {

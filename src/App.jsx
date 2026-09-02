@@ -26,7 +26,7 @@ export default function App() {
       <Route
         path="/entrevistador1"
         element={
-          <ProtectedRoute allow={['entrevistador1', 'analista']}>
+          <ProtectedRoute allow={['entrevistador1', 'entrevistador2', 'entrevistador3', 'analista']}>
             <Interviewer1 />
           </ProtectedRoute>
         }
@@ -34,7 +34,7 @@ export default function App() {
       <Route
         path="/entrevistador2"
         element={
-          <ProtectedRoute allow={['entrevistador2', 'analista']}>
+          <ProtectedRoute allow={['entrevistador2', 'entrevistador3', 'analista']}>
             <Interviewer2 />
           </ProtectedRoute>
         }

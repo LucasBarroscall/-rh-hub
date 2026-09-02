@@ -17,30 +17,16 @@ export const DISPONIBILIDADES_TREINAMENTO = ['Manhã/Tarde', 'Tarde/Noite']
 
 export const DISPONIBILIDADES_JORNADA = ['Meio período', 'Período integral', 'Escala 6x1', 'Escala 5x2']
 
+import { statusAtual, corStatus } from './status'
+
 // Etapa atual do candidato no funil — usada em filtros e no dashboard.
+// (Delegado para lib/status.js, que é a fonte única da sequência oficial.)
 export function etapaFunil(c) {
-  if (c.decisao_final === 'Aprovado' && c.contatado_whatsapp) return 'Contratação em andamento'
-  if (c.decisao_final === 'Reprovado') return 'Reprovado'
-  if (c.aprovado_entrevista === false) return 'Reprovado na entrevista'
-  if (c.aprovado_entrevista === true && c.teste_realizado !== true) return 'Aguardando teste'
-  if (c.aprovado_teste === false) return 'Reprovado no teste'
-  if (c.aprovado_teste === true && !c.decisao_final) return 'Aguardando decisão final'
-  if (c.compareceu_entrevista === null || c.compareceu_entrevista === undefined) return 'Aguardando entrevista'
-  return 'Em andamento'
+  return statusAtual(c)
 }
 
 export function corEtapa(etapa) {
-  const mapa = {
-    'Aguardando entrevista': 'bg-navy-100 text-navy-700',
-    'Em andamento': 'bg-navy-100 text-navy-700',
-    'Reprovado na entrevista': 'bg-clay-500/15 text-clay-600',
-    'Aguardando teste': 'bg-amber-400/20 text-amber-600',
-    'Reprovado no teste': 'bg-clay-500/15 text-clay-600',
-    'Aguardando decisão final': 'bg-amber-400/20 text-amber-600',
-    Reprovado: 'bg-clay-500/15 text-clay-600',
-    'Contratação em andamento': 'bg-sage-500/15 text-sage-600',
-  }
-  return mapa[etapa] || 'bg-navy-100 text-navy-700'
+  return corStatus(etapa)
 }
 
 export function etapa1Completa(c) {
