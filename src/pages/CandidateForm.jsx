@@ -408,7 +408,7 @@ export default function CandidateForm() {
             <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
             <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao
-              label="Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
+              label="Caso aprovado(a), os treinamentos poderão ser realizados fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
               name="concorda_turno_treinamento"
               value={form.concorda_turno_treinamento}
               onChange={set}
