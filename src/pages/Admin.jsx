@@ -1,9 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare } from 'lucide-react'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer } from 'lucide-react'
+
+// Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
+const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at', 'created_at']
 
 const ROLES = [
   { id: 'entrevistador1', label: 'Entrevistador 1' },
@@ -210,6 +214,9 @@ function AbaCandidatos() {
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState(null)
+  const [importando, setImportando] = useState(false)
+  const [resultadoImportacao, setResultadoImportacao] = useState(null)
+  const inputArquivoRef = useRef(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -224,17 +231,90 @@ function AbaCandidatos() {
 
   const filtrados = dados.filter((c) => c.nome_completo?.toLowerCase().includes(busca.toLowerCase()))
 
+  function exportarCSV() {
+    const linhas = dados.map((c) => {
+      const copia = { ...c }
+      COLUNAS_GERADAS.forEach((col) => delete copia[col])
+      return copia
+    })
+    const csv = Papa.unparse(linhas)
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `candidatos_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function importarCSV(e) {
+    const arquivo = e.target.files?.[0]
+    if (!arquivo) return
+    setImportando(true)
+    setResultadoImportacao(null)
+    Papa.parse(arquivo, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (resultado) => {
+        const linhas = resultado.data.map((linha) => {
+          const copia = { ...linha }
+          COLUNAS_GERADAS.forEach((col) => delete copia[col])
+          if ('id' in copia && !copia.id) delete copia.id
+          // Campos vazios viram null em vez de string vazia
+          Object.keys(copia).forEach((k) => {
+            if (copia[k] === '') copia[k] = null
+          })
+          return copia
+        })
+        const { error, count } = await supabase.from('candidatos').insert(linhas, { count: 'exact' })
+        setImportando(false)
+        if (inputArquivoRef.current) inputArquivoRef.current.value = ''
+        if (error) {
+          setResultadoImportacao({ ok: false, mensagem: error.message })
+        } else {
+          setResultadoImportacao({ ok: true, mensagem: `${count ?? linhas.length} candidato(s) importado(s) com sucesso.` })
+          carregar()
+        }
+      },
+      error: (err) => {
+        setImportando(false)
+        setResultadoImportacao({ ok: false, mensagem: err.message })
+      },
+    })
+  }
+
   return (
     <div>
-      <div className="relative mb-4 max-w-sm">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-400" />
-        <input
-          className="field-input pl-9"
-          placeholder="Buscar por nome…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-400" />
+          <input
+            className="field-input pl-9"
+            placeholder="Buscar por nome…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
+            <Download size={15} /> Exportar CSV
+          </button>
+          <button
+            onClick={() => inputArquivoRef.current?.click()}
+            disabled={importando}
+            className="btn-secondary flex items-center gap-1.5"
+          >
+            <Upload size={15} /> {importando ? 'Importando…' : 'Importar CSV'}
+          </button>
+          <input ref={inputArquivoRef} type="file" accept=".csv" onChange={importarCSV} className="hidden" />
+        </div>
       </div>
+
+      {resultadoImportacao && (
+        <p className={`text-sm mb-4 ${resultadoImportacao.ok ? 'text-sage-600' : 'text-clay-600'}`}>
+          {resultadoImportacao.mensagem}
+        </p>
+      )}
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -541,6 +621,7 @@ function AbaListas() {
   const [loading, setLoading] = useState(true)
   const [novoValor, setNovoValor] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -550,6 +631,7 @@ function AbaListas() {
       .eq('campo', campoAtivo)
       .order('ordem', { ascending: true })
     if (!error) setItens(data)
+    else setErro(`Não foi possível carregar as opções: ${error.message}`)
     setLoading(false)
   }, [campoAtivo])
 
@@ -560,6 +642,7 @@ function AbaListas() {
   async function adicionar(e) {
     e.preventDefault()
     if (!novoValor.trim()) return
+    setErro('')
     setSalvando(true)
     const proximaOrdem = itens.length ? Math.max(...itens.map((i) => i.ordem)) + 1 : 1
     const { error } = await supabase
@@ -569,13 +652,37 @@ function AbaListas() {
     if (!error) {
       setNovoValor('')
       carregar()
+    } else if (error.code === '23505') {
+      setErro('Essa opção já existe nessa lista.')
+    } else if (error.code === '42501' || error.message?.includes('row-level security')) {
+      setErro('Sem permissão para editar essa lista — confira se seu usuário está com o papel "analista".')
+    } else if (error.code === '42P17' || error.message?.includes('does not exist')) {
+      setErro('A tabela de listas ainda não existe ou está desatualizada no seu banco — rode o SQL da Rodada 3 no Supabase (SQL Editor) e tente de novo.')
+    } else {
+      setErro(`Não foi possível adicionar: ${error.message}`)
     }
   }
 
   async function remover(item) {
     if (!confirm(`Remover a opção "${item.valor}"? Candidatos já cadastrados com esse valor não são afetados.`)) return
+    setErro('')
     const { error } = await supabase.from('opcoes_lista').delete().eq('id', item.id)
     if (!error) carregar()
+    else setErro(`Não foi possível remover: ${error.message}`)
+  }
+
+  async function mover(index, direcao) {
+    const alvo = index + direcao
+    if (alvo < 0 || alvo >= itens.length) return
+    setErro('')
+    const a = itens[index]
+    const b = itens[alvo]
+    const { error } = await supabase.from('opcoes_lista').update({ ordem: b.ordem }).eq('id', a.id)
+    const { error: error2 } = !error
+      ? await supabase.from('opcoes_lista').update({ ordem: a.ordem }).eq('id', b.id)
+      : { error: null }
+    if (error || error2) setErro(`Não foi possível reordenar: ${(error || error2).message}`)
+    carregar()
   }
 
   return (
@@ -583,8 +690,8 @@ function AbaListas() {
       <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
         <ListChecks size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
         <p>
-          Essas listas alimentam os menus do formulário de cadastro do candidato. Adicionar ou remover
-          uma opção aqui muda o site na hora, sem precisar editar código.
+          Essas listas alimentam os menus do formulário de cadastro do candidato. Adicionar, remover ou
+          reordenar uma opção aqui muda o site na hora, sem precisar editar código.
         </p>
       </div>
 
@@ -592,7 +699,10 @@ function AbaListas() {
         {CAMPOS_LISTA.map((c) => (
           <button
             key={c.chave}
-            onClick={() => setCampoAtivo(c.chave)}
+            onClick={() => {
+              setErro('')
+              setCampoAtivo(c.chave)
+            }}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
               campoAtivo === c.chave ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
             }`}
@@ -602,7 +712,7 @@ function AbaListas() {
         ))}
       </div>
 
-      <form onSubmit={adicionar} className="flex gap-2 mb-4 max-w-md">
+      <form onSubmit={adicionar} className="flex gap-2 mb-2 max-w-md">
         <input
           className="field-input"
           placeholder="Nova opção…"
@@ -614,16 +724,36 @@ function AbaListas() {
         </button>
       </form>
 
+      {erro && <p className="text-sm text-clay-600 mb-4 max-w-md">{erro}</p>}
+
       <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-w-md">
         {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
         {!loading && itens.length === 0 && <p className="p-4 text-sm text-navy-400">Nenhuma opção cadastrada.</p>}
         {!loading &&
-          itens.map((item) => (
-            <div key={item.id} className="flex items-center justify-between px-4 py-3">
+          itens.map((item, i) => (
+            <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
               <span className="text-sm text-navy-800 dark:text-navy-100">{item.valor}</span>
-              <button onClick={() => remover(item)} className="text-navy-400 hover:text-clay-600">
-                <Trash2 size={15} />
-              </button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => mover(i, -1)}
+                  disabled={i === 0}
+                  title="Mover para cima"
+                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white disabled:opacity-30"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  onClick={() => mover(i, 1)}
+                  disabled={i === itens.length - 1}
+                  title="Mover para baixo"
+                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white disabled:opacity-30"
+                >
+                  <ChevronDown size={16} />
+                </button>
+                <button onClick={() => remover(item)} title="Remover" className="text-navy-400 hover:text-clay-600 ml-1">
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           ))}
       </div>

@@ -53,7 +53,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen lg:flex bg-white dark:bg-navy-950">
-      <aside className="lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-navy-100 dark:border-navy-800 bg-white dark:bg-navy-900">
+      <aside className="no-print lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-navy-100 dark:border-navy-800 bg-white dark:bg-navy-900">
         <div className="flex flex-col lg:h-screen lg:sticky lg:top-0">
           <div className="px-6 py-6 border-b border-navy-100 dark:border-navy-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">

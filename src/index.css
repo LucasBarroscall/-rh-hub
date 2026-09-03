@@ -14,6 +14,23 @@
   }
 }
 
+@layer utilities {
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .print-only {
+      display: block !important;
+    }
+    body {
+      background: white !important;
+    }
+  }
+  .print-only {
+    display: none;
+  }
+}
+
 @layer components {
   .field-label {
     @apply block text-sm font-medium text-navy-700 dark:text-navy-200 mb-1.5;

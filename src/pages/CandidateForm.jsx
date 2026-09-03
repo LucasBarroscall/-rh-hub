@@ -120,7 +120,11 @@ export default function CandidateForm() {
     setSubmitting(false)
 
     if (error) {
-      setError('Não foi possível enviar seu cadastro. Verifique os dados e tente novamente.')
+      setError(
+        error.message?.includes('column')
+          ? 'O banco de dados ainda não está atualizado para este formulário. Peça para o analista rodar as atualizações pendentes no Supabase.'
+          : 'Não foi possível enviar seu cadastro. Verifique os dados e tente novamente.',
+      )
       console.error(error)
       return
     }

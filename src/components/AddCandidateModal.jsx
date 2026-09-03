@@ -97,7 +97,11 @@ export default function AddCandidateModal({ onClose, onSaved }) {
     const { error } = await supabase.from('candidatos').insert(payload)
     setSubmitting(false)
     if (error) {
-      setError('Não foi possível salvar. Confira os campos obrigatórios.')
+      setError(
+        error.message?.includes('column')
+          ? 'O banco de dados ainda não está atualizado — rode as atualizações pendentes no Supabase.'
+          : 'Não foi possível salvar. Confira os campos obrigatórios.',
+      )
       console.error(error)
       return
     }

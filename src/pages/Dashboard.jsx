@@ -14,7 +14,7 @@ import {
   PieChart,
   Pie,
 } from 'recharts'
-import { X, Users, TrendingUp, Gauge, Target, Clock } from 'lucide-react'
+import { X, Users, TrendingUp, Gauge, Target, Clock, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DateRangePicker from '../components/DateRangePicker'
@@ -310,7 +310,19 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="p-6 lg:p-10 max-w-7xl mx-auto">
-        <header className="mb-6 flex items-center justify-between flex-wrap gap-4">
+        <div className="print-only mb-6">
+          <h1 className="text-2xl font-semibold text-navy-900">Relatório de Recrutamento — Hub RH</h1>
+          <p className="text-sm text-navy-500 mt-1">
+            Gerado em {new Date().toLocaleString('pt-BR')}
+            {periodo && !intervalo.inicio ? ` · Período: ${PERIODOS.find((p) => p.id === periodo)?.label}` : ''}
+            {intervalo.inicio && intervalo.fim
+              ? ` · Período: ${intervalo.inicio.toLocaleDateString('pt-BR')} a ${intervalo.fim.toLocaleDateString('pt-BR')}`
+              : ''}
+            {filtrosAtivos.length > 0 ? ` · Filtros: ${filtrosAtivos.map(([, v]) => v).join(', ')}` : ''}
+          </p>
+        </div>
+
+        <header className="no-print mb-6 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Dashboard</h1>
             <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">Visão geral do funil de recrutamento.</p>
@@ -332,10 +344,13 @@ export default function Dashboard() {
               ))}
             </div>
             <DateRangePicker inicio={intervalo.inicio} fim={intervalo.fim} onChange={(novo) => setIntervalo(novo)} />
+            <button onClick={() => window.print()} className="btn-secondary flex items-center gap-1.5">
+              <Printer size={15} /> Relatório / PDF
+            </button>
           </div>
         </header>
 
-        <div className="card p-4 mb-6 flex flex-wrap items-end gap-4">
+        <div className="no-print card p-4 mb-6 flex flex-wrap items-end gap-4">
           {CAMPOS_FILTRO.map(({ chave, label }) => (
             <div key={chave} className="min-w-[160px]">
               <label className="field-label mb-1">{label}</label>
