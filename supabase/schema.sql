@@ -477,9 +477,9 @@ update public.opcoes_lista set tipo_dependencia = 'lista',
   where campo = 'fonte' and valor = 'Redes Sociais';
 
 insert into public.opcoes_sublista (opcao_pai_id, valor, ordem)
-  select id, r.valor, r.ordem
-  from public.opcoes_lista, (values ('Instagram',1),('X (antigo Twitter)',2),('Facebook',3),('LinkedIn',4)) as r(valor, ordem)
-  where campo = 'fonte' and valor = 'Redes Sociais'
+  select ol.id, r.valor, r.ordem
+  from public.opcoes_lista ol, (values ('Instagram',1),('X (antigo Twitter)',2),('Facebook',3),('LinkedIn',4)) as r(valor, ordem)
+  where ol.campo = 'fonte' and ol.valor = 'Redes Sociais'
   on conflict (opcao_pai_id, valor) do nothing;
 
 insert into public.opcoes_lista (campo, valor, ordem, tipo_dependencia, rotulo_dependencia, placeholder_dependencia)
