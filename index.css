@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply text-ink;
+  }
+  body {
+    @apply bg-white dark:bg-navy-950 text-ink dark:text-navy-100 antialiased transition-colors;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .print-only {
+      display: block !important;
+    }
+    body {
+      background: white !important;
+    }
+  }
+  .print-only {
+    display: none;
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply block text-sm font-medium text-navy-700 dark:text-navy-200 mb-1.5;
+  }
+  .field-input {
+    @apply w-full rounded-lg border border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 px-3.5 py-2.5 text-[15px] text-ink dark:text-white
+           placeholder:text-navy-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400
+           transition-shadow;
+  }
+  .field-select {
+    @apply field-input appearance-none bg-no-repeat;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-navy-700 px-5 py-2.5 text-sm font-semibold
+           text-white shadow-card hover:bg-navy-800 active:bg-navy-900 transition-colors disabled:opacity-50
+           disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-navy-200 dark:border-navy-700 bg-white dark:bg-navy-900 px-5 py-2.5
+           text-sm font-semibold text-navy-700 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800 transition-colors disabled:opacity-50;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .card {
+    @apply rounded-2xl border border-navy-100 dark:border-navy-800 bg-white dark:bg-navy-900 shadow-card;
+  }
+}
