@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { formatarData } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
@@ -15,6 +15,7 @@ const CAMPOS_REPETIVEIS = [
   'data_exame', 'compareceu_exame', 'aprovado_exame',
   'data_onboarding', 'compareceu_onboarding',
   'data_treinamento', 'compareceu_treinamento',
+  'data_alo', 'compareceu_alo',
   'compliance', 'decisao_final',
 ]
 
@@ -29,17 +30,16 @@ function resultadoResumo(d) {
 }
 
 export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar, onRepetido }) {
-  const [aplicando, setAplicando] = useState(false)
+  const [aplicandoId, setAplicandoId] = useState(null)
 
-  async function repetirResultado() {
-    const maisRecente = duplicatas[0]
-    setAplicando(true)
+  async function repetirResultado(origem) {
+    setAplicandoId(origem.id)
     const campos = {}
     CAMPOS_REPETIVEIS.forEach((c) => {
-      campos[c] = maisRecente[c] ?? null
+      campos[c] = origem[c] ?? null
     })
     const { error } = await supabase.from('candidatos').update(campos).eq('id', candidatoAtual.id)
-    setAplicando(false)
+    setAplicandoId(null)
     if (!error) onRepetido()
   }
 
@@ -54,28 +54,38 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
             <h2 className="text-lg font-semibold text-navy-900 dark:text-white">CPF já cadastrado antes</h2>
             <p className="text-sm text-navy-500 dark:text-navy-400 mt-1">
               {candidatoAtual.nome_completo} já apareceu {duplicatas.length}{' '}
-              {duplicatas.length > 1 ? 'vezes anteriormente' : 'vez anteriormente'} no sistema.
+              {duplicatas.length > 1 ? 'vezes anteriormente' : 'vez anteriormente'} no sistema. Clique num
+              cadastro abaixo para repetir o resultado dele, ou siga normalmente.
             </p>
           </div>
         </div>
 
-        <div className="space-y-3 max-h-64 overflow-y-auto mb-5">
+        <div className="space-y-2.5 max-h-72 overflow-y-auto mb-5">
           {duplicatas.map((d) => (
-            <div key={d.id} className="rounded-lg border border-navy-100 dark:border-navy-800 p-3 text-sm">
-              <p className="font-medium text-navy-800 dark:text-navy-100">
-                {formatarData(d.data_entrevista)} — {statusAtual(d)}
-              </p>
+            <button
+              key={d.id}
+              onClick={() => repetirResultado(d)}
+              disabled={aplicandoId !== null}
+              className="w-full text-left rounded-lg border border-navy-100 dark:border-navy-800 p-3 text-sm hover:border-navy-700 hover:bg-navy-50 dark:hover:bg-navy-800 transition-colors disabled:opacity-50 group"
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-navy-800 dark:text-navy-100">
+                  {formatarData(d.data_entrevista)} — {statusAtual(d)}
+                </p>
+                {aplicandoId === d.id ? (
+                  <span className="text-xs text-navy-400 flex-shrink-0">Aplicando…</span>
+                ) : (
+                  <ArrowRight size={14} className="text-navy-300 group-hover:text-navy-700 dark:group-hover:text-white flex-shrink-0" />
+                )}
+              </div>
               <p className="text-navy-500 dark:text-navy-400 text-xs mt-1">{resultadoResumo(d)}</p>
-            </div>
+            </button>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-end gap-3">
+        <div className="flex justify-end">
           <button onClick={onFechar} className="btn-secondary">
             Seguir com o processo normalmente
-          </button>
-          <button onClick={repetirResultado} disabled={aplicando} className="btn-primary">
-            {aplicando ? 'Aplicando…' : 'Repetir resultado mais recente'}
           </button>
         </div>
       </div>

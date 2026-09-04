@@ -18,6 +18,7 @@ import { X, Users, TrendingUp, Gauge, Target, Clock, Printer } from 'lucide-reac
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DateRangePicker from '../components/DateRangePicker'
+import FunilChart from '../components/FunilChart'
 import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
 import { ETAPAS_FUNIL, MARCOS_FUNIL, formatarNumero, formatarDuracaoCurta, formatarDuracaoLonga } from '../lib/status'
 
@@ -511,31 +512,7 @@ export default function Dashboard() {
                 <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">
                   Funil de conversão — onde estamos perdendo candidatos
                 </h3>
-                <div className="space-y-2.5">
-                  {funilMarcos.map((f, i) => {
-                    const max = funilMarcos[0].value || 1
-                    const pct = Math.round((f.value / max) * 100)
-                    const pctAnterior =
-                      i > 0 && funilMarcos[i - 1].value ? Math.round((f.value / funilMarcos[i - 1].value) * 100) : null
-                    return (
-                      <div key={f.name}>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-navy-700 dark:text-navy-200 font-medium">{f.name}</span>
-                          <span className="text-navy-400">
-                            {formatarNumero(f.value)} · {pct}%
-                            {pctAnterior != null ? ` (${pctAnterior}% da etapa anterior)` : ''}
-                          </span>
-                        </div>
-                        <div className="h-3 rounded-full bg-navy-50 dark:bg-navy-800 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, backgroundColor: CORES[i % CORES.length] }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                <FunilChart etapas={funilMarcos} cores={CORES} />
               </div>
 
               <div className="card p-5">

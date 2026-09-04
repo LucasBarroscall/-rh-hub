@@ -1,12 +1,21 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import { useDuplicidade } from '../lib/useDuplicidade'
+import { useComentarios } from '../lib/useComentarios'
 import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa } from '../lib/candidato'
-import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle } from 'lucide-react'
+import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle, Filter } from 'lucide-react'
+
+const FILTROS_ETAPA = [
+  { id: '', label: 'Todos' },
+  { id: 'compareceu', label: 'Já compareceu' },
+  { id: 'nao_compareceu', label: 'Não compareceu' },
+  { id: 'aprovado', label: 'Aprovado na entrevista' },
+  { id: 'reprovado', label: 'Reprovado na entrevista' },
+]
 
 export default function Interviewer1() {
   const [fila, setFila] = useState([])
@@ -15,7 +24,9 @@ export default function Interviewer1() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
+  const [filtroEtapa, setFiltroEtapa] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const comentarios = useComentarios()
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -62,6 +73,17 @@ export default function Interviewer1() {
     salvar({ aprovado_entrevista: v })
   }
 
+  const filaFiltrada = useMemo(() => {
+    if (!filtroEtapa) return fila
+    return fila.filter((c) => {
+      if (filtroEtapa === 'compareceu') return c.compareceu_entrevista === true
+      if (filtroEtapa === 'nao_compareceu') return c.compareceu_entrevista === false
+      if (filtroEtapa === 'aprovado') return c.aprovado_entrevista === true
+      if (filtroEtapa === 'reprovado') return c.aprovado_entrevista === false
+      return true
+    })
+  }, [fila, filtroEtapa])
+
   return (
     <Layout>
       <div className="p-6 lg:p-10 max-w-6xl mx-auto">
@@ -83,7 +105,21 @@ export default function Interviewer1() {
           </label>
         </header>
 
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Filter size={14} className="text-navy-400" />
+            <select
+              className="field-select py-1.5 text-xs w-auto"
+              value={filtroEtapa}
+              onChange={(e) => setFiltroEtapa(e.target.value)}
+            >
+              {FILTROS_ETAPA.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <button onClick={() => setMostrarAdicionar(true)} className="btn-primary flex items-center gap-1.5">
             <UserPlus size={16} /> Adicionar candidato
           </button>
@@ -92,10 +128,10 @@ export default function Interviewer1() {
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
           <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[70vh] overflow-y-auto">
             {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
-            {!loading && fila.length === 0 && (
-              <p className="p-4 text-sm text-navy-400">Nenhum candidato na fila.</p>
+            {!loading && filaFiltrada.length === 0 && (
+              <p className="p-4 text-sm text-navy-400">Nenhum candidato encontrado.</p>
             )}
-            {fila.map((c) => (
+            {filaFiltrada.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setSelecionado(c)}
@@ -202,6 +238,7 @@ export default function Interviewer1() {
                     value={selecionado.compareceu_entrevista}
                     onChange={onCompareceu}
                     disabled={salvando}
+                    comentario={comentarios.compareceu_entrevista}
                   />
                 </div>
                 <div className="pt-4">
@@ -211,6 +248,7 @@ export default function Interviewer1() {
                     onChange={onAprovado}
                     disabled={salvando || selecionado.compareceu_entrevista !== true}
                     semantic
+                    comentario={comentarios.aprovado_entrevista}
                   />
                 </div>
               </div>

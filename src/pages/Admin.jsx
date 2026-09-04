@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer } from 'lucide-react'
+import EditarOpcaoModal from '../components/EditarOpcaoModal'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil } from 'lucide-react'
 
 // Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
 const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at', 'created_at']
@@ -146,25 +147,33 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
           </div>
           <div className="grid sm:grid-cols-2 gap-x-4 gap-y-4 mb-4">
             {[
-              ['documentacao_solicitada', 'Documentação solicitada?'],
-              ['compareceu_exame', 'Compareceu no exame?'],
-              ['aprovado_exame', 'Aprovado no exame?'],
-              ['enviou_documentacao', 'Enviou documentação?'],
-              ['aprovado_documentacao', 'Aprovado na documentação?'],
-              ['compareceu_onboarding', 'Compareceu no onboarding?'],
-              ['compareceu_treinamento', 'Compareceu no treinamento?'],
-              ['contatado_whatsapp', 'Contatado via WhatsApp?'],
-              ['compareceu_alo', 'Alô realizado?'],
-            ].map(([campo, label]) => (
+              ['documentacao_solicitada', 'Documentação solicitada?', 'data_documentacao_solicitada'],
+              ['compareceu_exame', 'Compareceu no exame?', null],
+              ['aprovado_exame', 'Aprovado no exame?', null],
+              ['enviou_documentacao', 'Enviou documentação?', 'data_envio_documentacao'],
+              ['aprovado_documentacao', 'Aprovado na documentação?', null],
+              ['compareceu_onboarding', 'Compareceu no onboarding?', 'data_onboarding'],
+              ['compareceu_treinamento', 'Compareceu no treinamento?', 'data_treinamento'],
+              ['contatado_whatsapp', 'Contatado via WhatsApp?', 'data_contato_whatsapp'],
+              ['compareceu_alo', 'Alô realizado?', 'data_alo'],
+            ].map(([campo, label, campoData]) => (
               <BoolToggle
                 key={campo}
                 label={label}
                 value={form[campo]}
-                onChange={(v) => set(campo, v)}
+                onChange={(v) => {
+                  set(campo, v)
+                  if (campoData && v === true && !form[campoData]) {
+                    set(campoData, new Date().toISOString().slice(0, 10))
+                  }
+                }}
                 disabled={salvando}
               />
             ))}
           </div>
+          <p className="text-xs text-navy-400 -mt-2 mb-4">
+            Marcar "Sim" nesses campos preenche a data correspondente automaticamente (editável na lista de campos acima).
+          </p>
           <div>
             <p className="field-label mb-2">Decisão final</p>
             <div className="grid grid-cols-3 gap-3">
@@ -608,7 +617,6 @@ function AbaAcessos() {
 
 const CAMPOS_LISTA = [
   { chave: 'fonte', label: 'Fonte' },
-  { chave: 'rede_social', label: 'Rede social' },
   { chave: 'sexo', label: 'Sexo' },
   { chave: 'disponibilidade_horario_trabalho', label: 'Horário de trabalho' },
   { chave: 'disponibilidade_horario_treinamento', label: 'Horário de treinamento' },
@@ -622,6 +630,7 @@ function AbaListas() {
   const [novoValor, setNovoValor] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
+  const [editando, setEditando] = useState(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -732,7 +741,14 @@ function AbaListas() {
         {!loading &&
           itens.map((item, i) => (
             <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
-              <span className="text-sm text-navy-800 dark:text-navy-100">{item.valor}</span>
+              <span className="text-sm text-navy-800 dark:text-navy-100 flex items-center gap-2">
+                {item.valor}
+                {campoAtivo === 'fonte' && item.tipo_dependencia && item.tipo_dependencia !== 'nenhum' && (
+                  <span className="pill bg-navy-100 dark:bg-navy-800 text-navy-600 dark:text-navy-300 text-[10px]">
+                    {item.tipo_dependencia === 'texto' ? 'Texto' : 'Lista'}
+                  </span>
+                )}
+              </span>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
                   onClick={() => mover(i, -1)}
@@ -750,13 +766,28 @@ function AbaListas() {
                 >
                   <ChevronDown size={16} />
                 </button>
-                <button onClick={() => remover(item)} title="Remover" className="text-navy-400 hover:text-clay-600 ml-1">
+                <button onClick={() => setEditando(item)} title="Editar" className="text-navy-400 hover:text-navy-700 dark:hover:text-white ml-1">
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => remover(item)} title="Remover" className="text-navy-400 hover:text-clay-600">
                   <Trash2 size={15} />
                 </button>
               </div>
             </div>
           ))}
       </div>
+
+      {editando && (
+        <EditarOpcaoModal
+          opcao={editando}
+          campo={campoAtivo}
+          onClose={() => setEditando(null)}
+          onSaved={() => {
+            setEditando(null)
+            carregar()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -785,6 +816,19 @@ function AbaComentarios() {
     ['possui_ensino_superior', 'Possui ensino superior'],
     ['concorda_turno_treinamento', 'Concorda com turno de treinamento'],
     ['observacoes', 'Observações'],
+    ['compareceu_entrevista', 'Compareceu na entrevista? (Etapa 1)'],
+    ['aprovado_entrevista', 'Aprovado na entrevista? (Etapa 1)'],
+    ['wpm', 'WPM (Etapa 2)'],
+    ['precisao', 'Precisão % (Etapa 2)'],
+    ['contatado_whatsapp', 'Contatado via WhatsApp? (Etapa 3)'],
+    ['documentacao_solicitada', 'Documentação solicitada? (Etapa 3)'],
+    ['enviou_documentacao', 'Enviou documentação? (Etapa 3)'],
+    ['aprovado_documentacao', 'Aprovado na documentação? (Etapa 3)'],
+    ['compareceu_exame', 'Compareceu no exame? (Etapa 3)'],
+    ['aprovado_exame', 'Aprovado no exame? (Etapa 3)'],
+    ['compareceu_onboarding', 'Compareceu no onboarding? (Etapa 3)'],
+    ['compareceu_treinamento', 'Compareceu no treinamento? (Etapa 3)'],
+    ['compareceu_alo', 'Alô realizado? (Etapa 3)'],
   ]
 
   const [comentarios, setComentarios] = useState({})
@@ -889,25 +933,50 @@ function AbaLog() {
     return dados?.nome_completo || dados?.nome || dados?.valor || l.registro_id?.slice(0, 8)
   }
 
+  function exportarCSV() {
+    const linhasCsv = filtradas.map((l) => ({
+      quando: new Date(l.criado_em).toLocaleString('pt-BR'),
+      quem: perfis[l.usuario_id] || 'Sistema',
+      acao: ROTULO_ACAO[l.acao],
+      tabela: ROTULO_TABELA[l.tabela] || l.tabela,
+      registro: nomeDoRegistro(l),
+      dados_antes: l.dados_antes ? JSON.stringify(l.dados_antes) : '',
+      dados_depois: l.dados_depois ? JSON.stringify(l.dados_depois) : '',
+    }))
+    const csv = Papa.unparse(linhasCsv)
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `log_alteracoes_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div>
-      <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 mb-5 w-fit">
-        {[
-          ['', 'Tudo'],
-          ['candidatos', 'Candidatos'],
-          ['profiles', 'Acessos'],
-          ['opcoes_lista', 'Listas'],
-        ].map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setFiltroTabela(v)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              filtroTabela === v ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+        <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 w-fit">
+          {[
+            ['', 'Tudo'],
+            ['candidatos', 'Candidatos'],
+            ['profiles', 'Acessos'],
+            ['opcoes_lista', 'Listas'],
+          ].map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setFiltroTabela(v)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                filtroTabela === v ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
+          <Download size={15} /> Exportar CSV
+        </button>
       </div>
 
       <div className="card overflow-x-auto">

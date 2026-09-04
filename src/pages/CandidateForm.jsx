@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { useComentarios } from '../lib/useComentarios'
 import ComentarioCampo from '../components/ComentarioCampo'
+import CampoFonte from '../components/CampoFonte'
+import CheckboxGroup from '../components/CheckboxGroup'
 import { maskRG, maskCPF, maskTelefone, validarCPF } from '../lib/formatters'
 
 const CAMPOS_INICIAIS = {
@@ -31,7 +33,7 @@ const CAMPOS_INICIAIS = {
   observacoes: '',
 }
 
-function SimNao({ label, value, onChange, name }) {
+function SimNao({ label, value, onChange, name, comentario }) {
   return (
     <div>
       <span className="field-label">{label}</span>
@@ -51,12 +53,13 @@ function SimNao({ label, value, onChange, name }) {
           </button>
         ))}
       </div>
+      {comentario && <p className="text-xs text-navy-500 dark:text-navy-400 mt-1.5">{comentario}</p>}
     </div>
   )
 }
 
 export default function CandidateForm() {
-  const { opcoes } = useOpcoes()
+  const { opcoes, fontes } = useOpcoes()
   const comentarios = useComentarios()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [submitting, setSubmitting] = useState(false)
@@ -89,20 +92,33 @@ export default function CandidateForm() {
     set('telefone', maskTelefone(e.target.value))
   }
 
+  function mudarFonte(valor) {
+    setForm((f) => ({ ...f, fonte: valor, nome_indicador: '', rede_social: '' }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
-    if (form.fonte === 'Indicação' && form.nome_indicador === '') {
-      setError('Informe o nome de quem te indicou, ou selecione outra origem.')
+    const fonteSelecionada = fontes.find((f) => f.valor === form.fonte)
+    if (fonteSelecionada?.tipo_dependencia === 'texto' && !form.nome_indicador.trim()) {
+      setError(`Preencha o campo "${fonteSelecionada.rotulo_dependencia || 'detalhe'}".`)
       return
     }
-    if (form.fonte === 'Redes Sociais' && form.rede_social === '') {
-      setError('Selecione de qual rede social você chegou até nós.')
+    if (fonteSelecionada?.tipo_dependencia === 'lista' && !form.rede_social) {
+      setError(`Selecione uma opção em "${fonteSelecionada.rotulo_dependencia || 'detalhe'}".`)
       return
     }
     if (!validarCPF(form.cpf)) {
       setError('O CPF informado não é válido. Confira os números digitados.')
+      return
+    }
+    if (!form.disponibilidade_horario_trabalho) {
+      setError('Selecione ao menos uma opção de horário de trabalho.')
+      return
+    }
+    if (!form.disponibilidade_horario_treinamento) {
+      setError('Selecione ao menos uma opção de horário de treinamento.')
       return
     }
 
@@ -110,8 +126,8 @@ export default function CandidateForm() {
     const tempoPreenchimentoSegundos = Math.round((Date.now() - inicioRef.current) / 1000)
     const payload = {
       ...form,
-      nome_indicador: form.fonte === 'Indicação' ? form.nome_indicador || null : 'Ninguém',
-      rede_social: form.fonte === 'Redes Sociais' ? form.rede_social || null : null,
+      nome_indicador: fonteSelecionada?.tipo_dependencia === 'texto' ? form.nome_indicador.trim() : null,
+      rede_social: fonteSelecionada?.tipo_dependencia === 'lista' ? form.rede_social : null,
       data_nascimento: form.data_nascimento || null,
       tempo_preenchimento_segundos: tempoPreenchimentoSegundos,
     }
@@ -164,54 +180,16 @@ export default function CandidateForm() {
             <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">
               Como você chegou até nós
             </h2>
-            <div>
-              <label className="field-label">Fonte</label>
-              <select name="fonte" required className="field-select" value={form.fonte} onChange={handleChange}>
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {(opcoes.fonte || []).map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-              <ComentarioCampo texto={comentarios.fonte} />
-            </div>
-            {form.fonte === 'Redes Sociais' && (
-              <div>
-                <label className="field-label">Qual rede social?</label>
-                <select
-                  name="rede_social"
-                  required
-                  className="field-select"
-                  value={form.rede_social}
-                  onChange={handleChange}
-                >
-                  <option value="" disabled>
-                    Selecione
-                  </option>
-                  {(opcoes.rede_social || []).map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {form.fonte === 'Indicação' && (
-              <div>
-                <label className="field-label">Quem te indicou?</label>
-                <input
-                  name="nome_indicador"
-                  required
-                  className="field-input"
-                  value={form.nome_indicador}
-                  onChange={handleChange}
-                  placeholder="Nome completo de quem indicou"
-                />
-              </div>
-            )}
+            <CampoFonte
+              fontes={fontes}
+              fonteValor={form.fonte}
+              onFonteChange={mudarFonte}
+              detalheValor={form.nome_indicador}
+              onDetalheChange={(v) => set('nome_indicador', v)}
+              subValor={form.rede_social}
+              onSubChange={(v) => set('rede_social', v)}
+              comentario={comentarios.fonte}
+            />
           </section>
 
           <section className="space-y-4">
@@ -225,6 +203,7 @@ export default function CandidateForm() {
                 value={form.nome_completo}
                 onChange={handleChange}
               />
+              <ComentarioCampo texto={comentarios.nome_completo} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -250,6 +229,7 @@ export default function CandidateForm() {
                     </option>
                   ))}
                 </select>
+                <ComentarioCampo texto={comentarios.sexo} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -264,6 +244,7 @@ export default function CandidateForm() {
                   onChange={handleRG}
                   placeholder="Somente números"
                 />
+                <ComentarioCampo texto={comentarios.rg} />
               </div>
               <div>
                 <label className="field-label">CPF</label>
@@ -276,6 +257,7 @@ export default function CandidateForm() {
                   onChange={handleCPF}
                   placeholder="000.000.000-00"
                 />
+                <ComentarioCampo texto={comentarios.cpf} />
               </div>
             </div>
             <div>
@@ -287,6 +269,7 @@ export default function CandidateForm() {
                 value={form.nome_mae}
                 onChange={handleChange}
               />
+              <ComentarioCampo texto={comentarios.nome_mae} />
             </div>
             <div>
               <label className="field-label">Telefone</label>
@@ -299,6 +282,7 @@ export default function CandidateForm() {
                 onChange={handleTelefone}
                 placeholder="(00) 0 0000-0000"
               />
+              <ComentarioCampo texto={comentarios.telefone} />
             </div>
             <div>
               <label className="field-label">E-mail</label>
@@ -311,6 +295,7 @@ export default function CandidateForm() {
                 onChange={handleChange}
                 placeholder="seuemail@exemplo.com"
               />
+              <ComentarioCampo texto={comentarios.email} />
             </div>
           </section>
 
@@ -325,6 +310,7 @@ export default function CandidateForm() {
                 value={form.endereco}
                 onChange={handleChange}
               />
+              <ComentarioCampo texto={comentarios.endereco} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -339,49 +325,26 @@ export default function CandidateForm() {
             <div>
               <label className="field-label">CEP</label>
               <input name="cep" required className="field-input" value={form.cep} onChange={handleChange} />
+              <ComentarioCampo texto={comentarios.cep} />
             </div>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h2>
-            <div>
-              <label className="field-label">Horário de trabalho</label>
-              <select
-                name="disponibilidade_horario_trabalho"
-                required
-                className="field-select"
-                value={form.disponibilidade_horario_trabalho}
-                onChange={handleChange}
-              >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {(opcoes.disponibilidade_horario_trabalho || []).map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="field-label">Horário de treinamento</label>
-              <select
-                name="disponibilidade_horario_treinamento"
-                required
-                className="field-select"
-                value={form.disponibilidade_horario_treinamento}
-                onChange={handleChange}
-              >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {(opcoes.disponibilidade_horario_treinamento || []).map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CheckboxGroup
+              label="Horário de trabalho (pode marcar mais de um)"
+              opcoes={opcoes.disponibilidade_horario_trabalho || []}
+              valor={form.disponibilidade_horario_trabalho}
+              onChange={(v) => set('disponibilidade_horario_trabalho', v)}
+              comentario={comentarios.disponibilidade_horario_trabalho}
+            />
+            <CheckboxGroup
+              label="Horário de treinamento (pode marcar mais de um)"
+              opcoes={opcoes.disponibilidade_horario_treinamento || []}
+              valor={form.disponibilidade_horario_treinamento}
+              onChange={(v) => set('disponibilidade_horario_treinamento', v)}
+              comentario={comentarios.disponibilidade_horario_treinamento}
+            />
             <div>
               <label className="field-label">Jornada de trabalho</label>
               <select
@@ -400,18 +363,32 @@ export default function CandidateForm() {
                   </option>
                 ))}
               </select>
+              <ComentarioCampo texto={comentarios.disponibilidade_jornada} />
             </div>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h2>
-            <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
-            <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao
-              label="Caso aprovado(a), os treinamentos poderão ser realizados fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
+              label="Possui veículo próprio?"
+              name="possui_veiculo"
+              value={form.possui_veiculo}
+              onChange={set}
+              comentario={comentarios.possui_veiculo}
+            />
+            <SimNao
+              label="Possui ensino superior?"
+              name="possui_ensino_superior"
+              value={form.possui_ensino_superior}
+              onChange={set}
+              comentario={comentarios.possui_ensino_superior}
+            />
+            <SimNao
+              label="Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
               name="concorda_turno_treinamento"
               value={form.concorda_turno_treinamento}
               onChange={set}
+              comentario={comentarios.concorda_turno_treinamento}
             />
             <div>
               <label className="field-label">Observações</label>
@@ -422,6 +399,7 @@ export default function CandidateForm() {
                 value={form.observacoes}
                 onChange={handleChange}
               />
+              <ComentarioCampo texto={comentarios.observacoes} />
             </div>
           </section>
 

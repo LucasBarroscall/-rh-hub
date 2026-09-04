@@ -411,3 +411,80 @@ insert into public.opcoes_lista (campo, valor, ordem) values
   ('rede_social', 'Facebook', 3),
   ('rede_social', 'LinkedIn', 4)
 on conflict (campo, valor) do nothing;
+
+-- =========================================================
+-- RODADA 4 — fontes com dependências configuráveis (texto ou
+-- lista), log exportável, correções.
+-- =========================================================
+
+-- ---------------------------------------------------------
+-- Fonte com campo dependente configurável pelo analista:
+-- 'nenhum' (ex.: Outros), 'texto' (ex.: Indicação, Funcionário
+-- Callink) ou 'lista' (ex.: Redes Sociais).
+-- ---------------------------------------------------------
+alter table public.opcoes_lista add column if not exists tipo_dependencia text not null default 'nenhum'
+  check (tipo_dependencia in ('nenhum', 'texto', 'lista'));
+alter table public.opcoes_lista add column if not exists rotulo_dependencia text;
+alter table public.opcoes_lista add column if not exists placeholder_dependencia text;
+
+create table if not exists public.opcoes_sublista (
+  id uuid primary key default gen_random_uuid(),
+  opcao_pai_id uuid not null references public.opcoes_lista (id) on delete cascade,
+  valor text not null,
+  ordem int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (opcao_pai_id, valor)
+);
+
+comment on table public.opcoes_sublista is 'Opções da sub-lista de uma opção de Fonte com tipo_dependencia = lista (ex.: Instagram/Facebook para Redes Sociais).';
+
+alter table public.opcoes_sublista enable row level security;
+
+create policy "opcoes_sublista_select_publico"
+  on public.opcoes_sublista for select
+  to anon, authenticated
+  using (true);
+
+create policy "opcoes_sublista_insert_analista"
+  on public.opcoes_sublista for insert
+  to authenticated
+  with check (public.is_analista(auth.uid()));
+
+create policy "opcoes_sublista_update_analista"
+  on public.opcoes_sublista for update
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+create policy "opcoes_sublista_delete_analista"
+  on public.opcoes_sublista for delete
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+drop trigger if exists trg_log_opcoes_sub on public.opcoes_sublista;
+create trigger trg_log_opcoes_sub
+  after insert or update or delete on public.opcoes_sublista
+  for each row execute function public.registrar_log();
+
+-- Migra a config existente: Indicação e Redes Sociais viram exemplos
+-- configurados; "Funcionário Callink" é criado com dependência de texto.
+update public.opcoes_lista set tipo_dependencia = 'texto',
+  rotulo_dependencia = 'Quem indicou?',
+  placeholder_dependencia = 'Nome completo de quem indicou'
+  where campo = 'fonte' and valor = 'Indicação';
+
+update public.opcoes_lista set tipo_dependencia = 'lista',
+  rotulo_dependencia = 'Qual rede social?'
+  where campo = 'fonte' and valor = 'Redes Sociais';
+
+insert into public.opcoes_sublista (opcao_pai_id, valor, ordem)
+  select id, r.valor, r.ordem
+  from public.opcoes_lista, (values ('Instagram',1),('X (antigo Twitter)',2),('Facebook',3),('LinkedIn',4)) as r(valor, ordem)
+  where campo = 'fonte' and valor = 'Redes Sociais'
+  on conflict (opcao_pai_id, valor) do nothing;
+
+insert into public.opcoes_lista (campo, valor, ordem, tipo_dependencia, rotulo_dependencia, placeholder_dependencia)
+  values ('fonte', 'Funcionário Callink', 4, 'texto', 'Qual funcionário indicou?', 'Escreva o nome completo de quem indicou')
+  on conflict (campo, valor) do nothing;
+
+-- A antiga lista "rede_social" avulsa não é mais usada (virou opcoes_sublista);
+-- mantemos as linhas antigas por segurança, mas o site não lê mais delas.

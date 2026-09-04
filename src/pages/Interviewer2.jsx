@@ -1,10 +1,20 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import { useDuplicidade } from '../lib/useDuplicidade'
+import { useComentarios } from '../lib/useComentarios'
+import ComentarioCampo from '../components/ComentarioCampo'
 import { formatarData, etapa2Completa } from '../lib/candidato'
-import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2 } from 'lucide-react'
+import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2, Filter } from 'lucide-react'
+
+const FILTROS_ETAPA = [
+  { id: '', label: 'Todos' },
+  { id: 'testado', label: 'Já fez o teste' },
+  { id: 'nao_testado', label: 'Ainda não fez' },
+  { id: 'aprovado', label: 'Aprovado no teste' },
+  { id: 'reprovado', label: 'Reprovado no teste' },
+]
 
 export default function Interviewer2() {
   const [fila, setFila] = useState([])
@@ -12,11 +22,13 @@ export default function Interviewer2() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
+  const [filtroEtapa, setFiltroEtapa] = useState('')
 
   const [wpm, setWpm] = useState('')
   const [precisao, setPrecisao] = useState('')
   const [alerta, setAlerta] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const comentarios = useComentarios()
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -88,6 +100,17 @@ export default function Interviewer2() {
   const aprovadoPreview =
     wpm !== '' && precisao !== '' ? Number(wpm) >= 20 && Number(precisao) >= 95 : null
 
+  const filaFiltrada = useMemo(() => {
+    if (!filtroEtapa) return fila
+    return fila.filter((c) => {
+      if (filtroEtapa === 'testado') return c.teste_realizado === true
+      if (filtroEtapa === 'nao_testado') return c.teste_realizado == null
+      if (filtroEtapa === 'aprovado') return c.aprovado_teste === true
+      if (filtroEtapa === 'reprovado') return c.aprovado_teste === false
+      return true
+    })
+  }, [fila, filtroEtapa])
+
   return (
     <Layout>
       <div className="p-6 lg:p-10 max-w-6xl mx-auto">
@@ -109,13 +132,28 @@ export default function Interviewer2() {
           </label>
         </header>
 
+        <div className="flex items-center gap-2 mb-4">
+          <Filter size={14} className="text-navy-400" />
+          <select
+            className="field-select py-1.5 text-xs w-auto"
+            value={filtroEtapa}
+            onChange={(e) => setFiltroEtapa(e.target.value)}
+          >
+            {FILTROS_ETAPA.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
           <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[70vh] overflow-y-auto">
             {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
-            {!loading && fila.length === 0 && (
-              <p className="p-4 text-sm text-navy-400">Nenhum candidato aprovado aguardando teste.</p>
+            {!loading && filaFiltrada.length === 0 && (
+              <p className="p-4 text-sm text-navy-400">Nenhum candidato encontrado.</p>
             )}
-            {fila.map((c) => (
+            {filaFiltrada.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setSelecionado(c)}
@@ -205,6 +243,7 @@ export default function Interviewer2() {
                         value={wpm}
                         onChange={(e) => setWpm(e.target.value)}
                       />
+                      <ComentarioCampo texto={comentarios.wpm} />
                     </div>
                     <div>
                       <label className="field-label">Precisão (%)</label>
@@ -217,6 +256,7 @@ export default function Interviewer2() {
                         value={precisao}
                         onChange={(e) => setPrecisao(e.target.value)}
                       />
+                      <ComentarioCampo texto={comentarios.precisao} />
                     </div>
                   </div>
 

@@ -1,7 +1,7 @@
 // Botão duplo Sim/Não que permite desmarcar: clicar na opção já
 // selecionada limpa a resposta (volta para null) — usado nas 3 telas
 // de entrevistador para todo campo booleano do funil.
-export default function BoolToggle({ label, value, onChange, disabled, semantic }) {
+export default function BoolToggle({ label, value, onChange, disabled, semantic, comentario }) {
   function clicar(v) {
     onChange(value === v ? null : v)
   }
@@ -45,6 +45,7 @@ export default function BoolToggle({ label, value, onChange, disabled, semantic 
           limpar resposta
         </button>
       )}
+      {comentario && <p className="text-xs text-navy-500 dark:text-navy-400 mt-1.5">{comentario}</p>}
     </div>
   )
 }

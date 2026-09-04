@@ -137,6 +137,14 @@ CPF já apareceu antes e mostra um alerta com o histórico. É preciso
 confirmar "seguir normalmente" ou "repetir resultado mais recente" para
 continuar.
 
+## Fonte com campos dependentes (configurável)
+
+Em Administração → Listas → Fonte, clique no lápis de qualquer opção para
+escolher: nenhum campo extra (como "Outros"), campo de texto livre (como
+"Indicação" ou "Funcionário Callink") ou uma lista de opções (como "Redes
+Sociais" → Instagram/X/Facebook/LinkedIn, que você também gerencia ali
+dentro). O formulário do candidato se adapta sozinho.
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard

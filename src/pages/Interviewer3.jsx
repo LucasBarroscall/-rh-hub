@@ -1,17 +1,30 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import { useDuplicidade } from '../lib/useDuplicidade'
+import { useComentarios } from '../lib/useComentarios'
 import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
-import { ClipboardCheck, AlertTriangle, MessageCircle, X } from 'lucide-react'
+import { ClipboardCheck, AlertTriangle, MessageCircle, X, Filter } from 'lucide-react'
+
+const FILTROS_ETAPA = [
+  { id: '', label: 'Todos' },
+  { id: 'contatado', label: 'Já contatado (WhatsApp)' },
+  { id: 'nao_contatado', label: 'Ainda não contatado' },
+  { id: 'doc_enviada', label: 'Documentação enviada' },
+  { id: 'exame_feito', label: 'Já fez o exame' },
+  { id: 'exame_pendente', label: 'Exame pendente' },
+  { id: 'onboarding_feito', label: 'Onboarding feito' },
+  { id: 'treinamento_feito', label: 'Treinamento feito' },
+  { id: 'alo_feito', label: 'Alô realizado' },
+]
 
 // Campo booleano + campo de data que aparece quando marcado "Sim".
-function CampoComData({ label, valor, data, onMudarValor, onMudarData, disabled }) {
+function CampoComData({ label, valor, data, onMudarValor, onMudarData, disabled, comentario }) {
   return (
     <div>
-      <BoolToggle label={label} value={valor} onChange={onMudarValor} disabled={disabled} />
+      <BoolToggle label={label} value={valor} onChange={onMudarValor} disabled={disabled} comentario={comentario} />
       {valor === true && (
         <div className="mt-2">
           <input
@@ -32,9 +45,11 @@ export default function Interviewer3() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
+  const [filtroEtapa, setFiltroEtapa] = useState('')
   const [dataExame, setDataExame] = useState('')
   const [compliance, setCompliance] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const comentarios = useComentarios()
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -93,6 +108,28 @@ export default function Interviewer3() {
     })
   }
 
+  function marcarAlo(v) {
+    atualizar({
+      compareceu_alo: v,
+      data_alo: v ? new Date().toISOString().slice(0, 10) : null,
+    })
+  }
+
+  const filaFiltrada = useMemo(() => {
+    if (!filtroEtapa) return fila
+    return fila.filter((c) => {
+      if (filtroEtapa === 'contatado') return c.contatado_whatsapp === true
+      if (filtroEtapa === 'nao_contatado') return !c.contatado_whatsapp
+      if (filtroEtapa === 'doc_enviada') return c.enviou_documentacao === true
+      if (filtroEtapa === 'exame_feito') return c.compareceu_exame === true
+      if (filtroEtapa === 'exame_pendente') return !c.compareceu_exame
+      if (filtroEtapa === 'onboarding_feito') return c.compareceu_onboarding === true
+      if (filtroEtapa === 'treinamento_feito') return c.compareceu_treinamento === true
+      if (filtroEtapa === 'alo_feito') return c.compareceu_alo === true
+      return true
+    })
+  }, [fila, filtroEtapa])
+
   return (
     <Layout>
       <div className="p-6 lg:p-10 max-w-6xl mx-auto">
@@ -114,13 +151,28 @@ export default function Interviewer3() {
           </label>
         </header>
 
+        <div className="flex items-center gap-2 mb-4">
+          <Filter size={14} className="text-navy-400" />
+          <select
+            className="field-select py-1.5 text-xs w-auto"
+            value={filtroEtapa}
+            onChange={(e) => setFiltroEtapa(e.target.value)}
+          >
+            {FILTROS_ETAPA.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
           <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[70vh] overflow-y-auto">
             {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
-            {!loading && fila.length === 0 && (
-              <p className="p-4 text-sm text-navy-400">Nenhum candidato pronto para decisão.</p>
+            {!loading && filaFiltrada.length === 0 && (
+              <p className="p-4 text-sm text-navy-400">Nenhum candidato encontrado.</p>
             )}
-            {fila.map((c) => (
+            {filaFiltrada.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setSelecionado(c)}
@@ -225,6 +277,9 @@ export default function Interviewer3() {
                     onChange={(e) => atualizar({ data_contato_whatsapp: e.target.value || null })}
                   />
                 )}
+                {comentarios.contatado_whatsapp && (
+                  <p className="text-xs text-navy-500 dark:text-navy-400 mt-1.5">{comentarios.contatado_whatsapp}</p>
+                )}
               </div>
 
               {/* 2. Documentação */}
@@ -238,6 +293,7 @@ export default function Interviewer3() {
                     onMudarValor={(v) => atualizar({ documentacao_solicitada: v, data_documentacao_solicitada: v ? new Date().toISOString().slice(0, 10) : null })}
                     onMudarData={(d) => atualizar({ data_documentacao_solicitada: d })}
                     disabled={salvando}
+                    comentario={comentarios.documentacao_solicitada}
                   />
                   <CampoComData
                     label="Enviou documentação?"
@@ -246,6 +302,7 @@ export default function Interviewer3() {
                     onMudarValor={(v) => atualizar({ enviou_documentacao: v, data_envio_documentacao: v ? new Date().toISOString().slice(0, 10) : null })}
                     onMudarData={(d) => atualizar({ data_envio_documentacao: d })}
                     disabled={salvando}
+                    comentario={comentarios.enviou_documentacao}
                   />
                   <BoolToggle
                     label="Aprovado na documentação?"
@@ -253,6 +310,7 @@ export default function Interviewer3() {
                     onChange={(v) => atualizar({ aprovado_documentacao: v })}
                     disabled={salvando}
                     semantic
+                    comentario={comentarios.aprovado_documentacao}
                   />
                   <div>
                     <label className="field-label">Compliance</label>
@@ -286,6 +344,7 @@ export default function Interviewer3() {
                     value={selecionado.compareceu_exame}
                     onChange={(v) => atualizar({ compareceu_exame: v })}
                     disabled={salvando}
+                    comentario={comentarios.compareceu_exame}
                   />
                   <BoolToggle
                     label="Aprovado no exame?"
@@ -293,6 +352,7 @@ export default function Interviewer3() {
                     onChange={(v) => atualizar({ aprovado_exame: v })}
                     disabled={salvando}
                     semantic
+                    comentario={comentarios.aprovado_exame}
                   />
                 </div>
               </div>
@@ -308,6 +368,7 @@ export default function Interviewer3() {
                     onMudarValor={(v) => atualizar({ compareceu_onboarding: v, data_onboarding: v ? new Date().toISOString().slice(0, 10) : null })}
                     onMudarData={(d) => atualizar({ data_onboarding: d })}
                     disabled={salvando}
+                    comentario={comentarios.compareceu_onboarding}
                   />
                   <CampoComData
                     label="Compareceu no treinamento?"
@@ -316,8 +377,23 @@ export default function Interviewer3() {
                     onMudarValor={(v) => atualizar({ compareceu_treinamento: v, data_treinamento: v ? new Date().toISOString().slice(0, 10) : null })}
                     onMudarData={(d) => atualizar({ data_treinamento: d })}
                     disabled={salvando}
+                    comentario={comentarios.compareceu_treinamento}
                   />
                 </div>
+              </div>
+
+              {/* 5. Alô (entrega final) */}
+              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-3">5. Alô (entrega final)</p>
+                <CampoComData
+                  label="Alô realizado?"
+                  valor={selecionado.compareceu_alo}
+                  data={selecionado.data_alo}
+                  onMudarValor={marcarAlo}
+                  onMudarData={(d) => atualizar({ data_alo: d })}
+                  disabled={salvando}
+                  comentario={comentarios.compareceu_alo}
+                />
               </div>
 
               <div className="pt-6 mt-6 border-t border-navy-100 dark:border-navy-800">
@@ -346,9 +422,6 @@ export default function Interviewer3() {
                     {selecionado.decisao_final === 'Reprovado' ? 'Reprovado ✓ (clique para desfazer)' : 'Reprovar candidato'}
                   </button>
                 </div>
-                <p className="text-xs text-navy-400 mt-2">
-                  As etapas de Alô (entrega final) ficam com o analista de People Analytics, em Administração.
-                </p>
               </div>
             </div>
           ) : (
