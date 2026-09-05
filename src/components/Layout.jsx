@@ -21,12 +21,17 @@ const NAV_BY_ROLE = {
     { to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck },
     { to: '/admin', label: 'Administração', icon: ShieldCheck },
   ],
-  entrevistador1: [{ to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck }],
+  entrevistador1: [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
+  ],
   entrevistador2: [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
     { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
   ],
   entrevistador3: [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
     { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
     { to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck },

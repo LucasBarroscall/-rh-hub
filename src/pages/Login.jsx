@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { Users } from 'lucide-react'
+import { Users, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 
 export default function Login() {
   const { session, signIn, loading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [inativo, setInativo] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -19,13 +21,25 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setInativo(false)
     setSubmitting(true)
-    const { error } = await signIn(email, password)
-    setSubmitting(false)
+    const { data, error } = await signIn(email, password)
     if (error) {
+      setSubmitting(false)
       setError('E-mail ou senha incorretos.')
       return
     }
+
+    // Perfil inativo não pode entrar, mesmo com senha correta.
+    const { data: perfil } = await supabase.from('profiles').select('ativo').eq('id', data.user.id).single()
+    if (perfil && perfil.ativo === false) {
+      await supabase.auth.signOut()
+      setSubmitting(false)
+      setInativo(true)
+      return
+    }
+
+    setSubmitting(false)
     navigate('/')
   }
 
@@ -41,6 +55,16 @@ export default function Login() {
             <p className="text-[11px] text-navy-400 mt-0.5">People Analytics</p>
           </div>
         </div>
+
+        {inativo && (
+          <div className="flex items-start gap-2.5 rounded-lg bg-clay-500/10 text-clay-700 dark:text-clay-500 px-4 py-3.5 mb-5 text-sm">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <p>
+              Sua conta está <strong>inativa</strong>. Entre em contato com o analista de People Analytics
+              para reativar seu acesso.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="card p-7 space-y-4">
           <div>

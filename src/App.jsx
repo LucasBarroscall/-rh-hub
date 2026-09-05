@@ -18,7 +18,7 @@ export default function App() {
       <Route
         path="/"
         element={
-          <ProtectedRoute allow={['analista']}>
+          <ProtectedRoute allow={['entrevistador1', 'entrevistador2', 'entrevistador3', 'analista']}>
             <Dashboard />
           </ProtectedRoute>
         }

@@ -488,3 +488,16 @@ insert into public.opcoes_lista (campo, valor, ordem, tipo_dependencia, rotulo_d
 
 -- A antiga lista "rede_social" avulsa não é mais usada (virou opcoes_sublista);
 -- mantemos as linhas antigas por segurança, mas o site não lê mais delas.
+
+-- =========================================================
+-- RODADA 5 — endereço estruturado (CEP/ViaCEP), acesso ao
+-- dashboard para todos os entrevistadores (sem mudança de
+-- schema aqui, só de código).
+-- =========================================================
+alter table public.candidatos add column if not exists logradouro text;
+alter table public.candidatos add column if not exists numero text;
+alter table public.candidatos add column if not exists complemento text;
+alter table public.candidatos add column if not exists estado text;
+
+comment on column public.candidatos.logradouro is 'Preenchido automaticamente via ViaCEP a partir do CEP informado.';
+comment on column public.candidatos.numero is 'Número do endereço — único campo de endereço digitado manualmente quando o CEP é encontrado.';

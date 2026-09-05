@@ -25,6 +25,7 @@ export default function Interviewer1() {
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [busca, setBusca] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
 
@@ -74,15 +75,25 @@ export default function Interviewer1() {
   }
 
   const filaFiltrada = useMemo(() => {
-    if (!filtroEtapa) return fila
-    return fila.filter((c) => {
-      if (filtroEtapa === 'compareceu') return c.compareceu_entrevista === true
-      if (filtroEtapa === 'nao_compareceu') return c.compareceu_entrevista === false
-      if (filtroEtapa === 'aprovado') return c.aprovado_entrevista === true
-      if (filtroEtapa === 'reprovado') return c.aprovado_entrevista === false
-      return true
-    })
-  }, [fila, filtroEtapa])
+    let f = fila
+    if (filtroEtapa) {
+      f = f.filter((c) => {
+        if (filtroEtapa === 'compareceu') return c.compareceu_entrevista === true
+        if (filtroEtapa === 'nao_compareceu') return c.compareceu_entrevista === false
+        if (filtroEtapa === 'aprovado') return c.aprovado_entrevista === true
+        if (filtroEtapa === 'reprovado') return c.aprovado_entrevista === false
+        return true
+      })
+    }
+    if (busca.trim()) {
+      const termo = busca.toLowerCase().trim()
+      const digitos = busca.replace(/\D/g, '')
+      f = f.filter(
+        (c) => c.nome_completo?.toLowerCase().includes(termo) || (digitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(digitos)),
+      )
+    }
+    return f
+  }, [fila, filtroEtapa, busca])
 
   return (
     <Layout>
@@ -106,7 +117,13 @@ export default function Interviewer1() {
         </header>
 
         <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              className="field-input py-1.5 text-xs w-48"
+              placeholder="Buscar nome ou CPF…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
             <Filter size={14} className="text-navy-400" />
             <select
               className="field-select py-1.5 text-xs w-auto"

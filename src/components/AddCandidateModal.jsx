@@ -1,12 +1,24 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { useComentarios } from '../lib/useComentarios'
+import { useViaCep } from '../lib/useViaCep'
 import ComentarioCampo from './ComentarioCampo'
 import CampoFonte from './CampoFonte'
 import CheckboxGroup from './CheckboxGroup'
-import { maskRG, maskCPF, maskTelefone, validarCPF } from '../lib/formatters'
+import {
+  maskRG,
+  maskCPF,
+  maskTelefone,
+  maskCEP,
+  maskDataBR,
+  dataBRParaISO,
+  validarCPF,
+  validarDataBR,
+  normalizarTexto,
+  normalizarDisponibilidade,
+} from '../lib/formatters'
 
 const CAMPOS_INICIAIS = {
   fonte: '',
@@ -19,10 +31,13 @@ const CAMPOS_INICIAIS = {
   data_nascimento: '',
   sexo: '',
   nome_mae: '',
-  endereco: '',
+  cep: '',
+  logradouro: '',
+  numero: '',
+  complemento: '',
   bairro: '',
   cidade: '',
-  cep: '',
+  estado: '',
   email: '',
   disponibilidade_horario_trabalho: '',
   disponibilidade_horario_treinamento: '',
@@ -60,17 +75,61 @@ function SimNao({ label, value, onChange, name }) {
 export default function AddCandidateModal({ onClose, onSaved }) {
   const { opcoes, fontes } = useOpcoes()
   const comentarios = useComentarios()
+  const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
+  const [enderecoStatus, setEnderecoStatus] = useState('pendente')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const numeroRef = useRef(null)
+  const consultandoRef = useRef(false)
 
   function set(name, value) {
     setForm((f) => ({ ...f, [name]: value }))
   }
 
+  function normalizarAoSair(campo) {
+    return () => set(campo, normalizarTexto(form[campo]))
+  }
+
   function handleChange(e) {
     set(e.target.name, e.target.value)
   }
+
+  async function consultarCep(valorCep) {
+    const digitos = valorCep.replace(/\D/g, '')
+    if (digitos.length !== 8 || consultandoRef.current) return
+    consultandoRef.current = true
+    const dados = await consultar(valorCep)
+    consultandoRef.current = false
+    if (dados) {
+      setForm((f) => ({
+        ...f,
+        logradouro: dados.logradouro || '',
+        bairro: dados.bairro || '',
+        cidade: dados.localidade || '',
+        estado: dados.uf || '',
+      }))
+      setEnderecoStatus('auto')
+      setTimeout(() => numeroRef.current?.focus(), 50)
+    } else {
+      setForm((f) => ({ ...f, logradouro: '', bairro: '', cidade: '', estado: '' }))
+      setEnderecoStatus('manual')
+    }
+  }
+
+  function handleCep(e) {
+    const novo = maskCEP(e.target.value)
+    set('cep', novo)
+    limparErro()
+    if (novo.replace(/\D/g, '').length === 8) consultarCep(novo)
+  }
+
+  function handleCepBlur() {
+    if (form.cep.replace(/\D/g, '').length === 8 && enderecoStatus === 'pendente') consultarCep(form.cep)
+  }
+
+  const enderecoBloqueado = enderecoStatus === 'pendente'
+  const enderecoReadOnly = enderecoStatus === 'auto'
 
   function mudarFonte(valor) {
     setForm((f) => ({ ...f, fonte: valor, nome_indicador: '', rede_social: '' }))
@@ -93,6 +152,18 @@ export default function AddCandidateModal({ onClose, onSaved }) {
       setError('O CPF informado não é válido. Confira os números digitados.')
       return
     }
+    if (!validarDataBR(form.data_nascimento)) {
+      setError('Data de nascimento inválida. Use o formato dd/mm/aaaa.')
+      return
+    }
+    if (enderecoBloqueado || !form.logradouro || !form.cidade) {
+      setError('Preencha o CEP para localizar o endereço.')
+      return
+    }
+    if (!form.numero.trim()) {
+      setError('Preencha o número do endereço.')
+      return
+    }
     if (!form.disponibilidade_horario_trabalho) {
       setError('Selecione ao menos uma opção de horário de trabalho.')
       return
@@ -103,11 +174,28 @@ export default function AddCandidateModal({ onClose, onSaved }) {
     }
 
     setSubmitting(true)
+    const enderecoComposto = `${normalizarTexto(form.logradouro)}, ${form.numero.trim()}${
+      form.complemento.trim() ? ' - ' + normalizarTexto(form.complemento) : ''
+    }`
     const payload = {
       ...form,
-      nome_indicador: fonteSelecionada?.tipo_dependencia === 'texto' ? form.nome_indicador.trim() : null,
+      nome_completo: normalizarTexto(form.nome_completo),
+      nome_mae: normalizarTexto(form.nome_mae),
+      nome_indicador: fonteSelecionada?.tipo_dependencia === 'texto' ? normalizarTexto(form.nome_indicador) : null,
       rede_social: fonteSelecionada?.tipo_dependencia === 'lista' ? form.rede_social : null,
-      data_nascimento: form.data_nascimento || null,
+      logradouro: normalizarTexto(form.logradouro),
+      bairro: normalizarTexto(form.bairro),
+      cidade: normalizarTexto(form.cidade),
+      endereco: enderecoComposto,
+      data_nascimento: dataBRParaISO(form.data_nascimento),
+      disponibilidade_horario_trabalho: normalizarDisponibilidade(
+        form.disponibilidade_horario_trabalho.split(' | ').filter(Boolean),
+        opcoes.disponibilidade_horario_trabalho || [],
+      ),
+      disponibilidade_horario_treinamento: normalizarDisponibilidade(
+        form.disponibilidade_horario_treinamento.split(' | ').filter(Boolean),
+        opcoes.disponibilidade_horario_treinamento || [],
+      ),
     }
     const { error } = await supabase.from('candidatos').insert(payload)
     setSubmitting(false)
@@ -152,18 +240,27 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h3>
             <div>
               <label className="field-label">Nome completo</label>
-              <input name="nome_completo" required className="field-input" value={form.nome_completo} onChange={handleChange} />
+              <input
+                name="nome_completo"
+                required
+                className="field-input"
+                value={form.nome_completo}
+                onChange={handleChange}
+                onBlur={normalizarAoSair('nome_completo')}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="field-label">Data de nascimento</label>
                 <input
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
                   name="data_nascimento"
                   required
                   className="field-input"
+                  placeholder="dd/mm/aaaa"
                   value={form.data_nascimento}
-                  onChange={handleChange}
+                  onChange={(e) => set('data_nascimento', maskDataBR(e.target.value))}
                 />
               </div>
               <div>
@@ -208,7 +305,14 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div>
               <label className="field-label">Nome da mãe</label>
-              <input name="nome_mae" required className="field-input" value={form.nome_mae} onChange={handleChange} />
+              <input
+                name="nome_mae"
+                required
+                className="field-input"
+                value={form.nome_mae}
+                onChange={handleChange}
+                onBlur={normalizarAoSair('nome_mae')}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -241,22 +345,90 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h3>
             <div>
-              <label className="field-label">Rua / Número</label>
-              <input name="endereco" required className="field-input" value={form.endereco} onChange={handleChange} />
+              <label className="field-label">CEP</label>
+              <div className="relative">
+                <input
+                  name="cep"
+                  required
+                  inputMode="numeric"
+                  className="field-input"
+                  value={form.cep}
+                  onChange={handleCep}
+                  onBlur={handleCepBlur}
+                  placeholder="00000-000"
+                />
+                {carregandoCep && (
+                  <Loader2 size={16} className="animate-spin text-navy-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                )}
+              </div>
+              {erroCep && <p className="text-xs text-clay-600 mt-1.5">{erroCep}</p>}
+            </div>
+            <div>
+              <label className="field-label">Rua / Logradouro</label>
+              <input
+                className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
+                value={form.logradouro}
+                readOnly={enderecoReadOnly}
+                disabled={enderecoBloqueado || carregandoCep}
+                onChange={(e) => set('logradouro', e.target.value)}
+                onBlur={enderecoReadOnly ? undefined : normalizarAoSair('logradouro')}
+                placeholder={enderecoBloqueado ? 'Preencha o CEP primeiro' : ''}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">Número</label>
+                <input
+                  ref={numeroRef}
+                  className="field-input"
+                  value={form.numero}
+                  disabled={enderecoBloqueado || carregandoCep}
+                  onChange={(e) => set('numero', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="field-label">Complemento</label>
+                <input
+                  className="field-input"
+                  value={form.complemento}
+                  disabled={enderecoBloqueado || carregandoCep}
+                  onChange={(e) => set('complemento', e.target.value)}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="field-label">Bairro</label>
-                <input name="bairro" required className="field-input" value={form.bairro} onChange={handleChange} />
+                <input
+                  className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
+                  value={form.bairro}
+                  readOnly={enderecoReadOnly}
+                  disabled={enderecoBloqueado || carregandoCep}
+                  onChange={(e) => set('bairro', e.target.value)}
+                  onBlur={enderecoReadOnly ? undefined : normalizarAoSair('bairro')}
+                />
               </div>
               <div>
                 <label className="field-label">Cidade</label>
-                <input name="cidade" required className="field-input" value={form.cidade} onChange={handleChange} />
+                <input
+                  className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
+                  value={form.cidade}
+                  readOnly={enderecoReadOnly}
+                  disabled={enderecoBloqueado || carregandoCep}
+                  onChange={(e) => set('cidade', e.target.value)}
+                  onBlur={enderecoReadOnly ? undefined : normalizarAoSair('cidade')}
+                />
               </div>
             </div>
             <div>
-              <label className="field-label">CEP</label>
-              <input name="cep" required className="field-input" value={form.cep} onChange={handleChange} />
+              <label className="field-label">Estado</label>
+              <input
+                className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
+                value={form.estado}
+                readOnly={enderecoReadOnly}
+                disabled={enderecoBloqueado || carregandoCep}
+                onChange={(e) => set('estado', e.target.value.toUpperCase().slice(0, 2))}
+              />
             </div>
           </section>
 

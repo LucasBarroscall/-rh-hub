@@ -41,3 +41,84 @@ export function maskTelefone(value) {
   if (d.length > 0) return `(${d}`
   return d
 }
+
+export function maskCEP(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 8)
+  if (d.length > 5) return `${d.slice(0, 5)}-${d.slice(5)}`
+  return d
+}
+
+export function maskDataBR(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 8)
+  if (d.length > 4) return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`
+  if (d.length > 2) return `${d.slice(0, 2)}/${d.slice(2)}`
+  return d
+}
+
+export function dataBRParaISO(dataBR) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dataBR || '')
+  if (!m) return null
+  const [, dia, mes, ano] = m
+  return `${ano}-${mes}-${dia}`
+}
+
+export function isoParaDataBR(iso) {
+  if (!iso) return ''
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return ''
+  const [, ano, mes, dia] = m
+  return `${dia}/${mes}/${ano}`
+}
+
+export function validarDataBR(dataBR) {
+  const iso = dataBRParaISO(dataBR)
+  if (!iso) return false
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  const d = new Date(iso + 'T00:00:00')
+  if (Number.isNaN(d.getTime())) return false
+  if (d.getFullYear() !== ano || d.getMonth() + 1 !== mes || d.getDate() !== dia) return false
+  if (ano < 1900) return false
+  if (d > new Date()) return false
+  return true
+}
+
+// Deixa o texto num padrão único, tipo MAIÚSCULA()+ARRUMAR() do Excel,
+// mas removendo também acentuação e pontuação. Usado em nome, endereço etc.
+export function normalizarTexto(str) {
+  if (!str) return str
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[.,/\\#!$%^&*;:{}=\-_`~()"']/g, '') // remove pontuação
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Junta as opções escolhidas de disponibilidade num resultado "limpo":
+// quebra cada opção composta (ex.: "Manhã/Tarde") nos períodos atômicos,
+// remove repetições e, se cobrir todos os períodos possíveis, diz "Total".
+export function normalizarDisponibilidade(selecionadas, todasOpcoes) {
+  const universo = []
+  ;(todasOpcoes || []).forEach((op) => {
+    op.split('/')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .forEach((t) => {
+        if (!universo.includes(t)) universo.push(t)
+      })
+  })
+
+  const escolhidosSet = new Set()
+  ;(selecionadas || []).forEach((op) => {
+    op.split('/')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .forEach((t) => escolhidosSet.add(t))
+  })
+
+  const escolhidosOrdenados = universo.filter((t) => escolhidosSet.has(t))
+  if (universo.length > 0 && escolhidosOrdenados.length === universo.length) return 'Total'
+  return escolhidosOrdenados.join(' | ')
+}
+

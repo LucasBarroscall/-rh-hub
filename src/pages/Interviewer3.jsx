@@ -46,6 +46,7 @@ export default function Interviewer3() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [busca, setBusca] = useState('')
   const [dataExame, setDataExame] = useState('')
   const [compliance, setCompliance] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
@@ -116,19 +117,29 @@ export default function Interviewer3() {
   }
 
   const filaFiltrada = useMemo(() => {
-    if (!filtroEtapa) return fila
-    return fila.filter((c) => {
-      if (filtroEtapa === 'contatado') return c.contatado_whatsapp === true
-      if (filtroEtapa === 'nao_contatado') return !c.contatado_whatsapp
-      if (filtroEtapa === 'doc_enviada') return c.enviou_documentacao === true
-      if (filtroEtapa === 'exame_feito') return c.compareceu_exame === true
-      if (filtroEtapa === 'exame_pendente') return !c.compareceu_exame
-      if (filtroEtapa === 'onboarding_feito') return c.compareceu_onboarding === true
-      if (filtroEtapa === 'treinamento_feito') return c.compareceu_treinamento === true
-      if (filtroEtapa === 'alo_feito') return c.compareceu_alo === true
-      return true
-    })
-  }, [fila, filtroEtapa])
+    let f = fila
+    if (filtroEtapa) {
+      f = f.filter((c) => {
+        if (filtroEtapa === 'contatado') return c.contatado_whatsapp === true
+        if (filtroEtapa === 'nao_contatado') return !c.contatado_whatsapp
+        if (filtroEtapa === 'doc_enviada') return c.enviou_documentacao === true
+        if (filtroEtapa === 'exame_feito') return c.compareceu_exame === true
+        if (filtroEtapa === 'exame_pendente') return !c.compareceu_exame
+        if (filtroEtapa === 'onboarding_feito') return c.compareceu_onboarding === true
+        if (filtroEtapa === 'treinamento_feito') return c.compareceu_treinamento === true
+        if (filtroEtapa === 'alo_feito') return c.compareceu_alo === true
+        return true
+      })
+    }
+    if (busca.trim()) {
+      const termo = busca.toLowerCase().trim()
+      const digitos = busca.replace(/\D/g, '')
+      f = f.filter(
+        (c) => c.nome_completo?.toLowerCase().includes(termo) || (digitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(digitos)),
+      )
+    }
+    return f
+  }, [fila, filtroEtapa, busca])
 
   return (
     <Layout>
@@ -151,7 +162,13 @@ export default function Interviewer3() {
           </label>
         </header>
 
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <input
+            className="field-input py-1.5 text-xs w-48"
+            placeholder="Buscar nome ou CPF…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
           <Filter size={14} className="text-navy-400" />
           <select
             className="field-select py-1.5 text-xs w-auto"

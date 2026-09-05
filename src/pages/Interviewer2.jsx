@@ -23,6 +23,7 @@ export default function Interviewer2() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [busca, setBusca] = useState('')
 
   const [wpm, setWpm] = useState('')
   const [precisao, setPrecisao] = useState('')
@@ -101,15 +102,25 @@ export default function Interviewer2() {
     wpm !== '' && precisao !== '' ? Number(wpm) >= 20 && Number(precisao) >= 95 : null
 
   const filaFiltrada = useMemo(() => {
-    if (!filtroEtapa) return fila
-    return fila.filter((c) => {
-      if (filtroEtapa === 'testado') return c.teste_realizado === true
-      if (filtroEtapa === 'nao_testado') return c.teste_realizado == null
-      if (filtroEtapa === 'aprovado') return c.aprovado_teste === true
-      if (filtroEtapa === 'reprovado') return c.aprovado_teste === false
-      return true
-    })
-  }, [fila, filtroEtapa])
+    let f = fila
+    if (filtroEtapa) {
+      f = f.filter((c) => {
+        if (filtroEtapa === 'testado') return c.teste_realizado === true
+        if (filtroEtapa === 'nao_testado') return c.teste_realizado == null
+        if (filtroEtapa === 'aprovado') return c.aprovado_teste === true
+        if (filtroEtapa === 'reprovado') return c.aprovado_teste === false
+        return true
+      })
+    }
+    if (busca.trim()) {
+      const termo = busca.toLowerCase().trim()
+      const digitos = busca.replace(/\D/g, '')
+      f = f.filter(
+        (c) => c.nome_completo?.toLowerCase().includes(termo) || (digitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(digitos)),
+      )
+    }
+    return f
+  }, [fila, filtroEtapa, busca])
 
   return (
     <Layout>
@@ -132,7 +143,13 @@ export default function Interviewer2() {
           </label>
         </header>
 
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <input
+            className="field-input py-1.5 text-xs w-48"
+            placeholder="Buscar nome ou CPF…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
           <Filter size={14} className="text-navy-400" />
           <select
             className="field-select py-1.5 text-xs w-auto"

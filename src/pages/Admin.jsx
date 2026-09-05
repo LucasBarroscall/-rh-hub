@@ -6,6 +6,10 @@ import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
 import EditarOpcaoModal from '../components/EditarOpcaoModal'
 import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil } from 'lucide-react'
+import CampoFonte from '../components/CampoFonte'
+import CheckboxGroup from '../components/CheckboxGroup'
+import { useOpcoes } from '../lib/useOpcoes'
+import { normalizarTexto, normalizarDisponibilidade } from '../lib/formatters'
 
 // Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
 const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at', 'created_at']
@@ -33,6 +37,7 @@ function TabButton({ active, onClick, children }) {
 function EditorCandidato({ candidato, onClose, onSaved }) {
   const [form, setForm] = useState(candidato)
   const [salvando, setSalvando] = useState(false)
+  const { opcoes, fontes } = useOpcoes()
 
   function set(campo, valor) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -43,6 +48,18 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
     // remove campos calculados/gerados que não podem ser atualizados
     // eslint-disable-next-line no-unused-vars
     const { idade, aprovado_teste, updated_at, ...editavel } = form
+    editavel.nome_completo = normalizarTexto(editavel.nome_completo)
+    editavel.nome_mae = normalizarTexto(editavel.nome_mae)
+    editavel.bairro = normalizarTexto(editavel.bairro)
+    editavel.cidade = normalizarTexto(editavel.cidade)
+    editavel.disponibilidade_horario_trabalho = normalizarDisponibilidade(
+      (editavel.disponibilidade_horario_trabalho || '').split(' | ').filter(Boolean),
+      opcoes.disponibilidade_horario_trabalho || [],
+    )
+    editavel.disponibilidade_horario_treinamento = normalizarDisponibilidade(
+      (editavel.disponibilidade_horario_treinamento || '').split(' | ').filter(Boolean),
+      opcoes.disponibilidade_horario_treinamento || [],
+    )
     const { error } = await supabase.from('candidatos').update(editavel).eq('id', candidato.id)
     setSalvando(false)
     if (!error) onSaved()
@@ -57,20 +74,19 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
   }
 
   const campos = [
-    ['fonte', 'Fonte'],
-    ['rede_social', 'Rede social'],
-    ['nome_indicador', 'Nome de quem indicou'],
     ['nome_completo', 'Nome completo'],
     ['telefone', 'Telefone'],
     ['email', 'E-mail'],
     ['rg', 'RG'],
     ['cpf', 'CPF'],
     ['data_nascimento', 'Data de nascimento', 'date'],
-    ['sexo', 'Sexo'],
     ['nome_mae', 'Nome da mãe'],
-    ['endereco', 'Endereço'],
+    ['endereco', 'Endereço (composto)'],
+    ['numero', 'Número'],
+    ['complemento', 'Complemento'],
     ['bairro', 'Bairro'],
     ['cidade', 'Cidade'],
+    ['estado', 'Estado'],
     ['cep', 'CEP'],
     ['data_entrevista', 'Data da entrevista', 'date'],
     ['compliance', 'Compliance'],
@@ -94,6 +110,60 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
           <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
             <X size={20} />
           </button>
+        </div>
+
+        <div className="space-y-4 mb-4 pb-4 border-b border-navy-100 dark:border-navy-800">
+          <CampoFonte
+            fontes={fontes}
+            fonteValor={form.fonte || ''}
+            onFonteChange={(v) => set('fonte', v)}
+            detalheValor={form.nome_indicador || ''}
+            onDetalheChange={(v) => set('nome_indicador', v)}
+            subValor={form.rede_social || ''}
+            onSubChange={(v) => set('rede_social', v)}
+          />
+          <div>
+            <label className="field-label">Sexo</label>
+            <select className="field-select" value={form.sexo || ''} onChange={(e) => set('sexo', e.target.value)}>
+              <option value="" disabled>
+                Selecione
+              </option>
+              {(opcoes.sexo || []).map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <CheckboxGroup
+            label="Horário de trabalho"
+            opcoes={opcoes.disponibilidade_horario_trabalho || []}
+            valor={form.disponibilidade_horario_trabalho || ''}
+            onChange={(v) => set('disponibilidade_horario_trabalho', v)}
+          />
+          <CheckboxGroup
+            label="Horário de treinamento"
+            opcoes={opcoes.disponibilidade_horario_treinamento || []}
+            valor={form.disponibilidade_horario_treinamento || ''}
+            onChange={(v) => set('disponibilidade_horario_treinamento', v)}
+          />
+          <div>
+            <label className="field-label">Jornada de trabalho</label>
+            <select
+              className="field-select"
+              value={form.disponibilidade_jornada || ''}
+              onChange={(e) => set('disponibilidade_jornada', e.target.value)}
+            >
+              <option value="" disabled>
+                Selecione
+              </option>
+              {(opcoes.disponibilidade_jornada || []).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -225,6 +295,7 @@ function AbaCandidatos() {
   const [editando, setEditando] = useState(null)
   const [importando, setImportando] = useState(false)
   const [resultadoImportacao, setResultadoImportacao] = useState(null)
+  const [selecionados, setSelecionados] = useState(new Set())
   const inputArquivoRef = useRef(null)
 
   const carregar = useCallback(async () => {
@@ -238,7 +309,37 @@ function AbaCandidatos() {
     carregar()
   }, [carregar])
 
-  const filtrados = dados.filter((c) => c.nome_completo?.toLowerCase().includes(busca.toLowerCase()))
+  const buscaLimpa = busca.toLowerCase().trim()
+  const buscaDigitos = busca.replace(/\D/g, '')
+  const filtrados = dados.filter((c) => {
+    if (!buscaLimpa) return true
+    const nomeBate = c.nome_completo?.toLowerCase().includes(buscaLimpa)
+    const cpfBate = buscaDigitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(buscaDigitos)
+    return nomeBate || cpfBate
+  })
+
+  function alternarSelecao(id) {
+    setSelecionados((s) => {
+      const novo = new Set(s)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
+
+  function alternarSelecionarTodos() {
+    if (selecionados.size === filtrados.length) setSelecionados(new Set())
+    else setSelecionados(new Set(filtrados.map((c) => c.id)))
+  }
+
+  async function excluirSelecionados() {
+    if (!confirm(`Excluir definitivamente ${selecionados.size} candidato(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return
+    const { error } = await supabase.from('candidatos').delete().in('id', [...selecionados])
+    if (!error) {
+      setSelecionados(new Set())
+      carregar()
+    }
+  }
 
   function exportarCSV() {
     const linhas = dados.map((c) => {
@@ -299,12 +400,17 @@ function AbaCandidatos() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-400" />
           <input
             className="field-input pl-9"
-            placeholder="Buscar por nome…"
+            placeholder="Buscar por nome ou CPF…"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
         </div>
         <div className="flex gap-2">
+          {selecionados.size > 0 && (
+            <button onClick={excluirSelecionados} className="btn-secondary text-clay-600 border-clay-500/30 hover:bg-clay-500/5 flex items-center gap-1.5">
+              <Trash2 size={15} /> Excluir {selecionados.size} selecionado(s)
+            </button>
+          )}
           <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
             <Download size={15} /> Exportar CSV
           </button>
@@ -329,6 +435,14 @@ function AbaCandidatos() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-navy-100 dark:border-navy-800 text-left text-navy-400 text-xs uppercase tracking-wide">
+              <th className="px-4 py-3 w-8">
+                <input
+                  type="checkbox"
+                  checked={filtrados.length > 0 && selecionados.size === filtrados.length}
+                  onChange={alternarSelecionarTodos}
+                  className="rounded border-navy-200"
+                />
+              </th>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Cadastro</th>
               <th className="px-4 py-3">Origem</th>
@@ -339,7 +453,7 @@ function AbaCandidatos() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-navy-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-navy-400">
                   Carregando…
                 </td>
               </tr>
@@ -349,6 +463,14 @@ function AbaCandidatos() {
                 const etapa = etapaFunil(c)
                 return (
                   <tr key={c.id} className="border-b border-navy-50 dark:border-navy-800/60 last:border-0 hover:bg-navy-50/50 dark:hover:bg-navy-800/40">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selecionados.has(c.id)}
+                        onChange={() => alternarSelecao(c.id)}
+                        className="rounded border-navy-200"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-navy-900 dark:text-white">{c.nome_completo}</td>
                     <td className="px-4 py-3 text-navy-500 dark:text-navy-400">{formatarData(c.data_entrevista)}</td>
                     <td className="px-4 py-3 text-navy-500 dark:text-navy-400">{c.fonte}</td>
@@ -365,7 +487,7 @@ function AbaCandidatos() {
               })}
             {!loading && filtrados.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-navy-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-navy-400">
                   Nenhum candidato encontrado.
                 </td>
               </tr>

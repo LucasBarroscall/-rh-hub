@@ -145,6 +145,22 @@ escolher: nenhum campo extra (como "Outros"), campo de texto livre (como
 Sociais" → Instagram/X/Facebook/LinkedIn, que você também gerencia ali
 dentro). O formulário do candidato se adapta sozinho.
 
+## Endereço automático por CEP
+
+O formulário consulta o [ViaCEP](https://viacep.com.br) assim que o CEP é
+digitado (8 dígitos) ou ao sair do campo. Rua, Bairro, Cidade e Estado vêm
+travados (somente leitura) quando o CEP é encontrado — só Número e
+Complemento ficam livres. Se o CEP não existir, os campos destravam para
+preenchimento manual.
+
+## Padronização dos dados
+
+Nome, nome da mãe, e endereço são normalizados automaticamente ao sair do
+campo: maiúsculas, sem acento, sem pontuação — igual um MAIÚSCULA()+ARRUMAR()
+do Excel. Os horários de trabalho/treinamento também são "limpos": se as
+opções escolhidas cobrem todos os períodos possíveis, vira "Total"; senão,
+os períodos ficam únicos e sem repetição (ex.: "Manhã | Tarde | Noite").
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard
