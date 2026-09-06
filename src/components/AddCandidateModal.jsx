@@ -213,7 +213,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+      <div className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Adicionar candidato</h2>
           <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
@@ -223,7 +223,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="space-y-7">
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Origem</h3>
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Origem</h3>
             <CampoFonte
               fontes={fontes}
               fonteValor={form.fonte}
@@ -237,7 +237,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h3>
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h3>
             <div>
               <label className="field-label">Nome completo</label>
               <input
@@ -343,7 +343,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h3>
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h3>
             <div>
               <label className="field-label">CEP</label>
               <div className="relative">
@@ -433,7 +433,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h3>
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h3>
             <CheckboxGroup
               label="Horário de trabalho (pode marcar mais de um)"
               opcoes={opcoes.disponibilidade_horario_trabalho || []}
@@ -468,7 +468,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h3>
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Outras informações</h3>
             <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
             <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao

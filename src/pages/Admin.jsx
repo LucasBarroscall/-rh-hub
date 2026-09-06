@@ -104,7 +104,7 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
-      <div className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+      <div className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Editar candidato</h2>
           <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
@@ -181,7 +181,7 @@ function EditorCandidato({ candidato, onClose, onSaved }) {
         </div>
 
         <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
-          <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide mb-4">
+          <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-4">
             Status do funil — aprovar/reprovar em qualquer etapa
           </h3>
           <div className="grid sm:grid-cols-2 gap-4 mb-4">
@@ -536,7 +536,7 @@ function NovoAcessoModal({ onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
-      <form onSubmit={salvar} className="card w-full max-w-md p-6">
+      <form onSubmit={salvar} className="card-elevated w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Adicionar acesso</h2>
           <button type="button" onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">

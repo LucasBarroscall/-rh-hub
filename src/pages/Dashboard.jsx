@@ -77,10 +77,10 @@ function KpiCard({ icon: Icon, label, value, sub }) {
     <div className="card p-5">
       <div className="flex items-center gap-2 text-navy-400 mb-2">
         <Icon size={15} />
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+        <span className="text-[13px] font-medium">{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-navy-900 dark:text-white font-display">{value}</p>
-      {sub && <p className="text-xs text-navy-400 mt-1">{sub}</p>}
+      <p className="text-[26px] leading-none font-semibold text-navy-900 dark:text-white font-display">{value}</p>
+      {sub && <p className="text-xs text-navy-400 mt-1.5">{sub}</p>}
     </div>
   )
 }

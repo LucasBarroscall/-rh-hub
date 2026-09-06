@@ -45,7 +45,7 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
 
   return (
     <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[70]">
-      <div className="card w-full max-w-lg p-6">
+      <div className="card-elevated w-full max-w-lg p-6">
         <div className="flex items-start gap-3 mb-4">
           <div className="h-10 w-10 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0">
             <AlertTriangle size={18} className="text-amber-600" />

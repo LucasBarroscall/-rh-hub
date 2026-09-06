@@ -127,7 +127,7 @@ export default function EditarOpcaoModal({ opcao, campo, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-[60]">
-      <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
+      <div className="card-elevated w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Editar opção</h2>
           <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">

@@ -89,7 +89,7 @@ export default function DateRangePicker({ inicio, fim, onChange }) {
       </button>
 
       {aberto && (
-        <div className="absolute z-40 mt-2 right-0 card p-4 w-72">
+        <div className="absolute z-40 mt-2 right-0 card-elevated p-4 w-72">
           <div className="flex items-center justify-between mb-3">
             <button
               type="button"

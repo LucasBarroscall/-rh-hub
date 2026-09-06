@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Users, Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { useComentarios } from '../lib/useComentarios'
@@ -258,19 +258,24 @@ export default function CandidateForm() {
   return (
     <div className="min-h-screen bg-navy-50 dark:bg-navy-950 py-6 px-3 sm:py-10 sm:px-4">
       <div className="max-w-xl mx-auto">
-        <div className="flex items-center gap-2.5 justify-center mb-6 sm:mb-8">
-          <div className="h-9 w-9 rounded-lg bg-navy-700 flex items-center justify-center flex-shrink-0">
-            <Users size={19} className="text-amber-400" />
-          </div>
-          <div className="text-left">
-            <p className="font-display text-lg leading-none text-navy-900 dark:text-white">Cadastro de Candidato</p>
-            <p className="text-[11px] text-navy-400 mt-0.5">Processo seletivo</p>
-          </div>
+        <div className="flex flex-col items-center mb-6 sm:mb-8">
+          <img
+            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            alt="Callink"
+            className="h-7 w-auto dark:hidden"
+          />
+          <img
+            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            alt="Callink"
+            className="h-7 w-auto hidden dark:block brightness-0 invert"
+          />
+          <p className="text-[13px] font-medium text-navy-800 dark:text-navy-200 mt-3">Cadastro de Candidato</p>
+          <p className="text-[11px] text-navy-400 mt-0.5">Processo seletivo</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-4 sm:p-8 space-y-6 sm:space-y-7">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">
+            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">
               Como você chegou até nós
             </h2>
             <CampoFonte
@@ -286,7 +291,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Dados pessoais</h2>
+            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h2>
             <div>
               <label className="field-label">Nome completo</label>
               <input
@@ -397,7 +402,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Endereço</h2>
+            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h2>
             <div>
               <label className="field-label">CEP</label>
               <div className="relative">
@@ -488,7 +493,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Disponibilidade</h2>
+            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h2>
             <CheckboxGroup
               label="Horário de trabalho (pode marcar mais de um)"
               opcoes={opcoes.disponibilidade_horario_trabalho || []}
@@ -526,7 +531,7 @@ export default function CandidateForm() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-navy-800 dark:text-navy-300 uppercase tracking-wide">Outras informações</h2>
+            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Outras informações</h2>
             <SimNao
               label="Possui veículo próprio?"
               name="possui_veiculo"

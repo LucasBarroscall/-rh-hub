@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   ShieldCheck,
   LogOut,
-  Users,
   Sun,
   Moon,
 } from 'lucide-react'
@@ -61,14 +60,18 @@ export default function Layout({ children }) {
       <aside className="no-print lg:w-64 lg:flex-shrink-0 border-b lg:border-b-0 lg:border-r border-navy-100 dark:border-navy-800 bg-white dark:bg-navy-900">
         <div className="flex flex-col lg:h-screen lg:sticky lg:top-0">
           <div className="px-6 py-6 border-b border-navy-100 dark:border-navy-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-navy-700 flex items-center justify-center">
-                <Users size={17} className="text-amber-400" />
-              </div>
-              <div>
-                <p className="font-display text-[17px] leading-none text-navy-900 dark:text-white">Hub RH</p>
-                <p className="text-[11px] text-navy-400 mt-0.5">People Analytics</p>
-              </div>
+            <div>
+              <img
+                src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+                alt="Callink"
+                className="h-6 w-auto dark:hidden"
+              />
+              <img
+                src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+                alt="Callink"
+                className="h-6 w-auto hidden dark:block brightness-0 invert"
+              />
+              <p className="text-[11px] text-navy-400 mt-1">Hub de Recrutamento</p>
             </div>
             <button
               onClick={() => setEscuro((e) => !e)}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { Users, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 
@@ -46,14 +46,18 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-navy-50 dark:bg-navy-950 px-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2.5 justify-center mb-8">
-          <div className="h-9 w-9 rounded-lg bg-navy-800 flex items-center justify-center">
-            <Users size={19} className="text-amber-400" />
-          </div>
-          <div className="text-left">
-            <p className="font-display text-lg leading-none text-navy-900 dark:text-white">Hub RH</p>
-            <p className="text-[11px] text-navy-400 mt-0.5">People Analytics</p>
-          </div>
+        <div className="flex flex-col items-center mb-8">
+          <img
+            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            alt="Callink"
+            className="h-8 w-auto dark:hidden"
+          />
+          <img
+            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            alt="Callink"
+            className="h-8 w-auto hidden dark:block brightness-0 invert"
+          />
+          <p className="text-[11px] text-navy-400 mt-2">Hub de Recrutamento</p>
         </div>
 
         {inativo && (
