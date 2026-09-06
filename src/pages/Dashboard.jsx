@@ -257,7 +257,193 @@ export default function Dashboard() {
 
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v)
 
-  // ---- Funil de conversão (contagem cumulativa por marco) ----
+  // ---- 1. Qualidade da fonte (não só volume, taxa de aprovação) ----
+  const qualidadeFonte = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      const chave = c.fonte || 'Não informado'
+      if (!mapa[chave]) mapa[chave] = { fonte: chave, total: 0, decididos: 0, aprovados: 0, wpmSoma: 0, wpmN: 0 }
+      mapa[chave].total++
+      if (c.decisao_final) {
+        mapa[chave].decididos++
+        if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+      }
+      if (c.teste_realizado) {
+        mapa[chave].wpmSoma += Number(c.wpm || 0)
+        mapa[chave].wpmN++
+      }
+    })
+    return Object.values(mapa)
+      .map((m) => ({
+        ...m,
+        taxa: m.decididos ? Math.round((m.aprovados / m.decididos) * 100) : null,
+        wpmMedio: m.wpmN ? +(m.wpmSoma / m.wpmN).toFixed(1) : null,
+      }))
+      .sort((a, b) => b.total - a.total)
+  }, [filtrados])
+
+  // ---- 2. No-show vs Reprovado avaliado (entrevista e exame) ----
+  const noShow = useMemo(() => {
+    const entrevistaAgendada = filtrados.filter((c) => c.compareceu_entrevista !== null && c.compareceu_entrevista !== undefined)
+    const entrevistaNoShow = entrevistaAgendada.filter((c) => c.compareceu_entrevista === false).length
+    const entrevistaReprovado = filtrados.filter((c) => c.compareceu_entrevista === true && c.aprovado_entrevista === false).length
+
+    const exameAgendado = filtrados.filter((c) => c.data_exame)
+    const exameNoShow = exameAgendado.filter((c) => c.compareceu_exame === false).length
+    const exameReprovado = filtrados.filter((c) => c.compareceu_exame === true && c.aprovado_exame === false).length
+
+    return {
+      entrevistaAgendada: entrevistaAgendada.length,
+      entrevistaNoShow,
+      entrevistaReprovado,
+      exameAgendado: exameAgendado.length,
+      exameNoShow,
+      exameReprovado,
+    }
+  }, [filtrados])
+
+  // ---- 3. Ranking de indicadores (Indicação / Funcionário Callink) ----
+  const rankingIndicadores = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      if (!c.nome_indicador || c.fonte === 'Redes Sociais') return
+      if (!mapa[c.nome_indicador]) mapa[c.nome_indicador] = { nome: c.nome_indicador, total: 0, aprovados: 0 }
+      mapa[c.nome_indicador].total++
+      if (c.decisao_final === 'Aprovado') mapa[c.nome_indicador].aprovados++
+    })
+    return Object.values(mapa)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+  }, [filtrados])
+
+  // ---- 4. Distribuição de WPM e Precisão (histograma) ----
+  const distribuicaoWpm = useMemo(() => {
+    const faixas = [
+      { label: '< 10', min: 0, max: 10 },
+      { label: '10-20', min: 10, max: 20 },
+      { label: '20-30', min: 20, max: 30 },
+      { label: '30-40', min: 30, max: 40 },
+      { label: '40+', min: 40, max: Infinity },
+    ]
+    const contagem = faixas.map((f) => ({ name: f.label, value: 0 }))
+    filtrados
+      .filter((c) => c.teste_realizado && c.wpm != null)
+      .forEach((c) => {
+        const i = faixas.findIndex((f) => c.wpm >= f.min && c.wpm < f.max)
+        if (i >= 0) contagem[i].value++
+      })
+    return contagem
+  }, [filtrados])
+
+  const distribuicaoPrecisao = useMemo(() => {
+    const faixas = [
+      { label: '< 80%', min: 0, max: 80 },
+      { label: '80-90%', min: 80, max: 90 },
+      { label: '90-95%', min: 90, max: 95 },
+      { label: '95-100%', min: 95, max: 101 },
+    ]
+    const contagem = faixas.map((f) => ({ name: f.label, value: 0 }))
+    filtrados
+      .filter((c) => c.teste_realizado && c.precisao != null)
+      .forEach((c) => {
+        const i = faixas.findIndex((f) => c.precisao >= f.min && c.precisao < f.max)
+        if (i >= 0) contagem[i].value++
+      })
+    return contagem
+  }, [filtrados])
+
+  // ---- 5. Gargalo de documentação (presos há quanto tempo) ----
+  const gargaloDocumentacao = useMemo(() => {
+    const hoje = new Date()
+    const presos = filtrados
+      .filter((c) => c.documentacao_solicitada === true && c.enviou_documentacao !== true)
+      .map((c) => {
+        const dias = c.data_documentacao_solicitada
+          ? Math.floor((hoje - new Date(c.data_documentacao_solicitada)) / 86400000)
+          : null
+        return { nome: c.nome_completo, dias }
+      })
+      .sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0))
+
+    const enviadas = filtrados.filter(
+      (c) => c.data_documentacao_solicitada && c.data_envio_documentacao,
+    )
+    const tempoMedioEnvio = enviadas.length
+      ? enviadas.reduce(
+          (s, c) => s + (new Date(c.data_envio_documentacao) - new Date(c.data_documentacao_solicitada)),
+          0,
+        ) / enviadas.length
+      : null
+
+    return { presos, tempoMedioEnvio }
+  }, [filtrados])
+
+  // ---- 6. Exames atrasados ----
+  const examesAtrasados = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    return filtrados
+      .filter((c) => c.data_exame && c.compareceu_exame !== true && new Date(c.data_exame + 'T00:00:00') < hoje)
+      .map((c) => ({
+        nome: c.nome_completo,
+        dias: Math.floor((hoje - new Date(c.data_exame + 'T00:00:00')) / 86400000),
+      }))
+      .sort((a, b) => b.dias - a.dias)
+  }, [filtrados])
+
+  // ---- 7. Veículo / Ensino superior x aprovação ----
+  function taxaPorCondicao(campo) {
+    const comCondicao = filtrados.filter((c) => c[campo] === true && c.decisao_final)
+    const semCondicao = filtrados.filter((c) => c[campo] === false && c.decisao_final)
+    const taxa = (lista) => {
+      const aprovados = lista.filter((c) => c.decisao_final === 'Aprovado').length
+      return lista.length ? Math.round((aprovados / lista.length) * 100) : null
+    }
+    return {
+      comTaxa: taxa(comCondicao),
+      comN: comCondicao.length,
+      semTaxa: taxa(semCondicao),
+      semN: semCondicao.length,
+    }
+  }
+  const correlacaoVeiculo = useMemo(() => taxaPorCondicao('possui_veiculo'), [filtrados])
+  const correlacaoEnsino = useMemo(() => taxaPorCondicao('possui_ensino_superior'), [filtrados])
+
+  // ---- 8. Cadastros por dia da semana ----
+  const porDiaSemana = useMemo(() => {
+    const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+    const contagem = nomes.map((n) => ({ name: n, value: 0 }))
+    filtrados.forEach((c) => {
+      const dia = new Date(c.created_at).getDay()
+      contagem[dia].value++
+    })
+    return contagem
+  }, [filtrados])
+
+  // ---- 9. Reincidência de CPF ----
+  const reincidencia = useMemo(() => {
+    const porCpf = {}
+    filtrados.forEach((c) => {
+      if (!c.cpf) return
+      if (!porCpf[c.cpf]) porCpf[c.cpf] = []
+      porCpf[c.cpf].push(c)
+    })
+    const grupos = Object.values(porCpf)
+    const reincidentes = grupos.filter((g) => g.length > 1).flat()
+    const novatos = grupos.filter((g) => g.length === 1).flat()
+    const taxa = (lista) => {
+      const decididos = lista.filter((c) => c.decisao_final)
+      const aprovados = decididos.filter((c) => c.decisao_final === 'Aprovado')
+      return decididos.length ? Math.round((aprovados.length / decididos.length) * 100) : null
+    }
+    return {
+      candidatosUnicos: grupos.length,
+      reincidentesN: grupos.filter((g) => g.length > 1).length,
+      taxaReincidentes: taxa(reincidentes),
+      taxaNovatos: taxa(novatos),
+    }
+  }, [filtrados])
+
   const etapasComData = ETAPAS_FUNIL.filter((e) => e.dataCampo)
 
   const funilMarcos = useMemo(() => {
@@ -580,6 +766,230 @@ export default function Dashboard() {
                     <Tooltip />
                     <Line type="monotone" dataKey="Candidatos" stroke="#30cff2" strokeWidth={2} dot={false} />
                   </LineChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div className="pt-2 pb-3 mt-8 border-t border-navy-100 dark:border-navy-800">
+              <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Insights avançados</h2>
+              <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">
+                Qualidade, gargalos e padrões — não só volume.
+              </p>
+            </div>
+
+            {/* 1. Qualidade da fonte */}
+            <div className="card p-5 mb-5">
+              <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Qualidade da fonte</h3>
+              <p className="text-xs text-navy-400 mb-4">Volume não é tudo — qual origem realmente converte em contratação?</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-navy-100 dark:border-navy-800 text-left text-navy-400 text-xs uppercase tracking-wide">
+                      <th className="py-2 pr-4">Fonte</th>
+                      <th className="py-2 pr-4">Candidatos</th>
+                      <th className="py-2 pr-4">Taxa de aprovação</th>
+                      <th className="py-2 pr-4">WPM médio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {qualidadeFonte.map((f) => (
+                      <tr key={f.fonte} className="border-b border-navy-50 dark:border-navy-800/60 last:border-0">
+                        <td className="py-2.5 pr-4 font-medium text-navy-800 dark:text-navy-100">{f.fonte}</td>
+                        <td className="py-2.5 pr-4 text-navy-600 dark:text-navy-300">{formatarNumero(f.total)}</td>
+                        <td className="py-2.5 pr-4">
+                          {f.taxa != null ? (
+                            <span className={`pill ${f.taxa >= 50 ? 'bg-sage-500/15 text-sage-600' : 'bg-amber-400/20 text-amber-700 dark:text-amber-300'}`}>
+                              {f.taxa}% ({f.aprovados}/{f.decididos})
+                            </span>
+                          ) : (
+                            <span className="text-navy-400">sem decisões ainda</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-4 text-navy-600 dark:text-navy-300">{f.wpmMedio ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-5 mb-5">
+              {/* 2. No-show vs Reprovado */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">No-show vs. reprovado</h3>
+                <p className="text-xs text-navy-400 mb-4">Não apareceu é um problema diferente de não passar na avaliação.</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-medium text-navy-500 dark:text-navy-400 mb-1.5">
+                      Entrevista ({formatarNumero(noShow.entrevistaAgendada)} agendadas)
+                    </p>
+                    <div className="flex gap-2 text-xs">
+                      <span className="pill bg-clay-500/15 text-clay-600">{noShow.entrevistaNoShow} não compareceram</span>
+                      <span className="pill bg-amber-400/20 text-amber-700 dark:text-amber-300">{noShow.entrevistaReprovado} avaliados e reprovados</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-navy-500 dark:text-navy-400 mb-1.5">
+                      Exame ({formatarNumero(noShow.exameAgendado)} agendados)
+                    </p>
+                    <div className="flex gap-2 text-xs">
+                      <span className="pill bg-clay-500/15 text-clay-600">{noShow.exameNoShow} não compareceram</span>
+                      <span className="pill bg-amber-400/20 text-amber-700 dark:text-amber-300">{noShow.exameReprovado} avaliados e reprovados</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Ranking de indicadores */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Ranking de indicadores</h3>
+                <p className="text-xs text-navy-400 mb-4">Quem mais traz candidatos (Indicação / Funcionário Callink).</p>
+                {rankingIndicadores.length === 0 ? (
+                  <p className="text-sm text-navy-400">Nenhuma indicação no período.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {rankingIndicadores.map((r) => (
+                      <div key={r.nome} className="flex items-center justify-between text-sm">
+                        <span className="text-navy-700 dark:text-navy-200 truncate">{r.nome}</span>
+                        <span className="text-navy-400 text-xs flex-shrink-0 ml-2">
+                          {r.total} indicado{r.total !== 1 ? 's' : ''} · {r.aprovados} aprovado{r.aprovados !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-5 mb-5">
+              {/* 4. Distribuição WPM/Precisão */}
+              <ChartCard title="Distribuição de WPM">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={distribuicaoWpm}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#2f4c73" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+              <ChartCard title="Distribuição de Precisão">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={distribuicaoPrecisao}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#a64170" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-5 mb-5">
+              {/* 5. Gargalo de documentação */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Gargalo de documentação</h3>
+                <p className="text-xs text-navy-400 mb-4">
+                  {gargaloDocumentacao.tempoMedioEnvio != null
+                    ? `Tempo médio até enviar: ${formatarDuracaoLonga(gargaloDocumentacao.tempoMedioEnvio)}.`
+                    : 'Ainda sem dados de tempo de envio.'}
+                </p>
+                {gargaloDocumentacao.presos.length === 0 ? (
+                  <p className="text-sm text-sage-600">Ninguém preso esperando enviar documentos. 🎉</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {gargaloDocumentacao.presos.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-navy-700 dark:text-navy-200 truncate">{p.nome}</span>
+                        <span className="text-xs text-clay-600 flex-shrink-0 ml-2">
+                          {p.dias != null ? `${p.dias} dia${p.dias !== 1 ? 's' : ''} parado` : 'sem data'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 6. Exames atrasados */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Exames atrasados</h3>
+                <p className="text-xs text-navy-400 mb-4">Data do exame já passou e o candidato ainda não compareceu.</p>
+                {examesAtrasados.length === 0 ? (
+                  <p className="text-sm text-sage-600">Nenhum exame atrasado. 🎉</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {examesAtrasados.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-navy-700 dark:text-navy-200 truncate">{p.nome}</span>
+                        <span className="text-xs text-clay-600 flex-shrink-0 ml-2">{p.dias} dia{p.dias !== 1 ? 's' : ''} de atraso</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-5">
+              {/* 7. Correlações */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">Veículo x aprovação</h3>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-navy-600 dark:text-navy-300">Com veículo ({correlacaoVeiculo.comN})</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{correlacaoVeiculo.comTaxa ?? '—'}%</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-navy-600 dark:text-navy-300">Sem veículo ({correlacaoVeiculo.semN})</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{correlacaoVeiculo.semTaxa ?? '—'}%</span>
+                </div>
+                <p className="text-xs text-navy-400 mt-3">Taxa de aprovação final entre decididos.</p>
+              </div>
+
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">Ensino superior x aprovação</h3>
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-navy-600 dark:text-navy-300">Com ensino superior ({correlacaoEnsino.comN})</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{correlacaoEnsino.comTaxa ?? '—'}%</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-navy-600 dark:text-navy-300">Sem ensino superior ({correlacaoEnsino.semN})</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{correlacaoEnsino.semTaxa ?? '—'}%</span>
+                </div>
+                <p className="text-xs text-navy-400 mt-3">Taxa de aprovação final entre decididos.</p>
+              </div>
+
+              {/* 9. Reincidência */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-4">Reincidência de CPF</h3>
+                <p className="text-2xl font-semibold text-navy-900 dark:text-white font-display mb-1">
+                  {reincidencia.reincidentesN}
+                </p>
+                <p className="text-xs text-navy-400 mb-3">
+                  de {formatarNumero(reincidencia.candidatosUnicos)} candidatos únicos já se cadastraram mais de uma vez
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-navy-600 dark:text-navy-300">Taxa aprovação reincidentes</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{reincidencia.taxaReincidentes ?? '—'}%</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-navy-600 dark:text-navy-300">Taxa aprovação novatos</span>
+                  <span className="font-medium text-navy-900 dark:text-white">{reincidencia.taxaNovatos ?? '—'}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 8. Cadastros por dia da semana */}
+            <div className="mt-5">
+              <ChartCard title="Cadastros por dia da semana">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={porDiaSemana}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#B3BFE0" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#D4D943" />
+                  </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
