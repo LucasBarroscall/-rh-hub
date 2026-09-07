@@ -1,35 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import { useEffect, useState } from 'react'
+import { MapContainer, TileLayer, Circle, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import 'leaflet.heat'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, RefreshCw } from 'lucide-react'
 import { geocodificar } from '../lib/geocoding'
 
-function CamadaDeCalor({ pontos }) {
+// Cor interpolada de frio (poucos candidatos) a quente (muitos), usando a
+// paleta da marca — funciona como uma escala de calor sem depender de
+// nenhum plugin externo além do próprio Leaflet.
+function corIntensidade(t) {
+  const paradas = [
+    [48, 207, 242], // cyan-400
+    [212, 217, 67], // amber-400
+    [166, 65, 112], // clay-500
+  ]
+  const pos = Math.min(Math.max(t, 0), 1) * (paradas.length - 1)
+  const i = Math.floor(pos)
+  const frac = pos - i
+  const a = paradas[i]
+  const b = paradas[Math.min(i + 1, paradas.length - 1)]
+  const r = Math.round(a[0] + (b[0] - a[0]) * frac)
+  const g = Math.round(a[1] + (b[1] - a[1]) * frac)
+  const bl = Math.round(a[2] + (b[2] - a[2]) * frac)
+  return `rgb(${r},${g},${bl})`
+}
+
+function AjustarLimites({ pontos }) {
   const map = useMap()
-  const camadaRef = useRef(null)
-
   useEffect(() => {
-    if (camadaRef.current) {
-      map.removeLayer(camadaRef.current)
-      camadaRef.current = null
-    }
     if (pontos.length === 0) return
-    camadaRef.current = L.heatLayer(pontos, { radius: 28, blur: 22, maxZoom: 12 }).addTo(map)
-    const bounds = L.latLngBounds(pontos.map((p) => [p[0], p[1]]))
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 11 })
-    return () => {
-      if (camadaRef.current) map.removeLayer(camadaRef.current)
-    }
+    const bounds = L.latLngBounds(pontos.map((p) => [p.latitude, p.longitude]))
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 })
   }, [pontos, map])
-
   return null
 }
 
 export default function MapaDeCalor({ contagemPorLocal, nivel }) {
-  // contagemPorLocal: [{ nome, cidade, quantidade }] — para bairro, nome é
-  // "bairro, cidade"; para cidade, nome é "cidade, estado".
   const [carregando, setCarregando] = useState(false)
   const [progresso, setProgresso] = useState({ feito: 0, total: 0 })
   const [pontos, setPontos] = useState([])
@@ -41,12 +47,13 @@ export default function MapaDeCalor({ contagemPorLocal, nivel }) {
     const novosPontos = []
     for (let i = 0; i < contagemPorLocal.length; i++) {
       const item = contagemPorLocal[i]
-      const resultado = await geocodificar(`${item.nome}, Brasil`)
-      if (resultado) {
-        // peso repetido conforme a quantidade de candidatos daquele local
-        for (let n = 0; n < Math.min(item.quantidade, 50); n++) {
-          novosPontos.push([resultado.latitude, resultado.longitude, 0.6])
+      try {
+        const resultado = await geocodificar(`${item.nome}, Brasil`)
+        if (resultado) {
+          novosPontos.push({ ...resultado, quantidade: item.quantidade, nome: item.nome })
         }
+      } catch {
+        // segue para o próximo local mesmo se um falhar
       }
       setProgresso({ feito: i + 1, total: contagemPorLocal.length })
     }
@@ -92,6 +99,8 @@ export default function MapaDeCalor({ contagemPorLocal, nivel }) {
     )
   }
 
+  const maxQuantidade = Math.max(...pontos.map((p) => p.quantidade))
+
   return (
     <div className="h-80 rounded-md overflow-hidden border border-navy-100 dark:border-navy-800">
       <MapContainer center={[-14.235, -51.9253]} zoom={4} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
@@ -99,7 +108,20 @@ export default function MapaDeCalor({ contagemPorLocal, nivel }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <CamadaDeCalor pontos={pontos} />
+        {pontos.map((p) => {
+          const t = maxQuantidade ? p.quantidade / maxQuantidade : 0
+          const raio = 6000 + Math.sqrt(t) * 35000
+          return (
+            <Circle
+              key={`${p.latitude}-${p.longitude}`}
+              center={[p.latitude, p.longitude]}
+              radius={raio}
+              pathOptions={{ color: corIntensidade(t), fillColor: corIntensidade(t), fillOpacity: 0.45, weight: 1, opacity: 0.6 }}
+            >
+            </Circle>
+          )
+        })}
+        <AjustarLimites pontos={pontos} />
       </MapContainer>
     </div>
   )

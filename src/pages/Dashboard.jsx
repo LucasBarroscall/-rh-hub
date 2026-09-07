@@ -3,6 +3,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -1107,7 +1108,7 @@ export default function Dashboard() {
               {/* 11. Sazonalidade mensal */}
               <ChartCard title="Sazonalidade — candidatos e aprovação por mês">
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={sazonalidadeMensal}>
+                  <ComposedChart data={sazonalidadeMensal}>
                     <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
                     <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
                     <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} allowDecimals={false} />
@@ -1116,7 +1117,7 @@ export default function Dashboard() {
                     <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
                     <Bar yAxisId="esq" dataKey="Candidatos" radius={[4, 4, 0, 0]} fill="#2f4c73" />
                     <Line yAxisId="dir" type="monotone" dataKey="Taxa de aprovação" stroke="#a64170" strokeWidth={2} dot={{ r: 3 }} />
-                  </BarChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
