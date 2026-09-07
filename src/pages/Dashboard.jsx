@@ -8,17 +8,20 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
-  LineChart,
+  AreaChart,
+  Area,
   Line,
   Legend,
   PieChart,
   Pie,
 } from 'recharts'
-import { X, Users, TrendingUp, Gauge, Target, Clock, Printer } from 'lucide-react'
+import { X, TrendingUp, Gauge, Target, Clock, Printer, Flag, Users } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DateRangePicker from '../components/DateRangePicker'
 import FunilChart from '../components/FunilChart'
+import ChartTooltip from '../components/ChartTooltip'
+import MapaDeCalor from '../components/MapaDeCalor'
 import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
 import { ETAPAS_FUNIL, MARCOS_FUNIL, formatarNumero, formatarDuracaoCurta, formatarDuracaoLonga } from '../lib/status'
 
@@ -444,7 +447,99 @@ export default function Dashboard() {
     }
   }, [filtrados])
 
-  const etapasComData = ETAPAS_FUNIL.filter((e) => e.dataCampo)
+  // ---- 10. Tempo de resposta pós-contato ----
+  const respostaPosContato = useMemo(() => {
+    const deltas = []
+    filtrados.forEach((c) => {
+      if (c.data_contato_whatsapp && c.data_envio_documentacao) {
+        const t1 = new Date(c.data_contato_whatsapp).getTime()
+        const t2 = new Date(c.data_envio_documentacao).getTime()
+        if (t2 >= t1) deltas.push(t2 - t1)
+      }
+    })
+    const contatados = filtrados.filter((c) => c.contatado_whatsapp === true)
+    const respondeu = contatados.filter((c) => c.enviou_documentacao === true)
+    return {
+      tempoMedio: deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : null,
+      taxaResposta: contatados.length ? Math.round((respondeu.length / contatados.length) * 100) : null,
+      contatadosN: contatados.length,
+    }
+  }, [filtrados])
+
+  // ---- 11. Sazonalidade mensal (candidatos e taxa de aprovação por mês) ----
+  const sazonalidadeMensal = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      const chave = c.created_at.slice(0, 7) // YYYY-MM
+      if (!mapa[chave]) mapa[chave] = { chave, total: 0, aprovados: 0, decididos: 0 }
+      mapa[chave].total++
+      if (c.decisao_final) {
+        mapa[chave].decididos++
+        if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+      }
+    })
+    return Object.values(mapa)
+      .sort((a, b) => a.chave.localeCompare(b.chave))
+      .map((m) => {
+        const [ano, mes] = m.chave.split('-')
+        return {
+          mes: `${mes}/${ano.slice(2)}`,
+          Candidatos: m.total,
+          'Taxa de aprovação': m.decididos ? Math.round((m.aprovados / m.decididos) * 100) : 0,
+        }
+      })
+  }, [filtrados])
+
+  // ---- 12. Turno de treinamento x aprovação final ----
+  const turnoTreinamento = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      if (!c.disponibilidade_horario_treinamento || !c.decisao_final) return
+      const chave = c.disponibilidade_horario_treinamento
+      if (!mapa[chave]) mapa[chave] = { turno: chave, decididos: 0, aprovados: 0 }
+      mapa[chave].decididos++
+      if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+    })
+    return Object.values(mapa)
+      .map((m) => ({ ...m, taxa: Math.round((m.aprovados / m.decididos) * 100) }))
+      .sort((a, b) => b.decididos - a.decididos)
+  }, [filtrados])
+
+  // ---- 13. Localização para o mapa de calor (cidade e bairro) ----
+  const [nivelMapa, setNivelMapa] = useState('cidade')
+  const contagemMapa = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      if (nivelMapa === 'cidade') {
+        if (!c.cidade) return
+        const chave = c.estado ? `${c.cidade}, ${c.estado}` : c.cidade
+        mapa[chave] = (mapa[chave] || 0) + 1
+      } else {
+        if (!c.bairro || !c.cidade) return
+        const chave = `${c.bairro}, ${c.cidade}`
+        mapa[chave] = (mapa[chave] || 0) + 1
+      }
+    })
+    return Object.entries(mapa).map(([nome, quantidade]) => ({ nome, quantidade }))
+  }, [filtrados, nivelMapa])
+
+  // ---- 14. Meta mensal de contratações ----
+  const [meta, setMeta] = useState(null)
+  useEffect(() => {
+    const inicioMes = `${new Date().toISOString().slice(0, 7)}-01`
+    supabase
+      .from('metas')
+      .select('*')
+      .eq('mes', inicioMes)
+      .maybeSingle()
+      .then(({ data }) => setMeta(data))
+  }, [])
+  const entregasNoMes = useMemo(() => {
+    const inicioMes = new Date()
+    inicioMes.setDate(1)
+    inicioMes.setHours(0, 0, 0, 0)
+    return dados.filter((c) => c.compareceu_alo === true && c.data_alo && new Date(c.data_alo) >= inicioMes).length
+  }, [dados])
 
   const funilMarcos = useMemo(() => {
     return MARCOS_FUNIL.map((chave) => {
@@ -606,10 +701,10 @@ export default function Dashboard() {
               <ChartCard title="Funil de recrutamento" onClear={() => setFiltros((f) => ({ ...f, etapa: null }))} cleared={!filtros.etapa}>
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={porEtapa} layout="vertical" margin={{ left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E9F5" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
+                    <XAxis type="number" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d) => alternarFiltro('etapa', d.name)}>
                       {porEtapa.map((e, i) => (
                         <Cell key={e.name} fill={filtros.etapa === e.name || !filtros.etapa ? CORES[i % CORES.length] : '#D8DFF0'} />
@@ -637,7 +732,7 @@ export default function Dashboard() {
                         <Cell key={e.name} fill={filtros.fonte === e.name || !filtros.fonte ? CORES[i % CORES.length] : '#D8DFF0'} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip content={<ChartTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -647,10 +742,10 @@ export default function Dashboard() {
               <ChartCard title="Por sexo" onClear={() => setFiltros((f) => ({ ...f, sexo: null }))} cleared={!filtros.sexo}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porSexo}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(d) => alternarFiltro('sexo', d.name)}>
                       {porSexo.map((e, i) => (
                         <Cell key={e.name} fill={filtros.sexo === e.name || !filtros.sexo ? CORES[i % CORES.length] : '#D8DFF0'} />
@@ -663,10 +758,10 @@ export default function Dashboard() {
               <ChartCard title="Faixa etária" onClear={() => setFiltros((f) => ({ ...f, faixaEtaria: null }))} cleared={!filtros.faixaEtaria}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porFaixaEtaria}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(d) => alternarFiltro('faixaEtaria', d.name)}>
                       {porFaixaEtaria.map((e, i) => (
                         <Cell key={e.name} fill={filtros.faixaEtaria === e.name || !filtros.faixaEtaria ? CORES[i % CORES.length] : '#D8DFF0'} />
@@ -679,10 +774,10 @@ export default function Dashboard() {
               <ChartCard title="Cidade / região" onClear={() => setFiltros((f) => ({ ...f, cidade: null }))} cleared={!filtros.cidade}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porCidade} layout="vertical" margin={{ left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E4E9F5" />
-                    <XAxis type="number" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d) => alternarFiltro('cidade', d.name)}>
                       {porCidade.map((e, i) => (
                         <Cell key={e.name} fill={filtros.cidade === e.name || !filtros.cidade ? CORES[i % CORES.length] : '#D8DFF0'} />
@@ -745,27 +840,43 @@ export default function Dashboard() {
             <div className="grid lg:grid-cols-2 gap-5">
               <ChartCard title="Evolução de WPM e Precisão">
                 <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={evolucao}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E4E9F5" />
-                    <XAxis dataKey="data" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line type="monotone" dataKey="WPM" stroke="#2f4c73" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Precisão" stroke="#a64170" strokeWidth={2} dot={false} />
-                  </LineChart>
+                  <AreaChart data={evolucao} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradWpm" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2f4c73" stopOpacity={0.22} />
+                        <stop offset="100%" stopColor="#2f4c73" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradPrecisao" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a64170" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="#a64170" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="none" stroke="#EEF1F8" vertical={false} />
+                    <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={32} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+                    <Area type="monotone" dataKey="WPM" stroke="#2f4c73" strokeWidth={2} fill="url(#gradWpm)" dot={false} activeDot={{ r: 4 }} />
+                    <Area type="monotone" dataKey="Precisão" stroke="#a64170" strokeWidth={2} fill="url(#gradPrecisao)" dot={false} activeDot={{ r: 4 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </ChartCard>
 
               <ChartCard title="Candidatos cadastrados">
                 <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={candidatosPorPeriodo}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E4E9F5" />
-                    <XAxis dataKey="data" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="Candidatos" stroke="#30cff2" strokeWidth={2} dot={false} />
-                  </LineChart>
+                  <AreaChart data={candidatosPorPeriodo} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradCandidatos" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#30cff2" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="#30cff2" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="none" stroke="#EEF1F8" vertical={false} />
+                    <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={28} allowDecimals={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Area type="monotone" dataKey="Candidatos" stroke="#1AB6D8" strokeWidth={2} fill="url(#gradCandidatos)" dot={false} activeDot={{ r: 4 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
@@ -866,10 +977,10 @@ export default function Dashboard() {
               <ChartCard title="Distribuição de WPM">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={distribuicaoWpm}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#2f4c73" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -877,10 +988,10 @@ export default function Dashboard() {
               <ChartCard title="Distribuição de Precisão">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={distribuicaoPrecisao}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#a64170" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -980,22 +1091,141 @@ export default function Dashboard() {
             </div>
 
             {/* 8. Cadastros por dia da semana */}
-            <div className="mt-5">
+            <div className="mt-5 grid lg:grid-cols-2 gap-5">
               <ChartCard title="Cadastros por dia da semana">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={porDiaSemana}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E9F5" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#B3BFE0" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="#B3BFE0" allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#D4D943" />
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#D4D943" />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
+
+              {/* 11. Sazonalidade mensal */}
+              <ChartCard title="Sazonalidade — candidatos e aprovação por mês">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={sazonalidadeMensal}>
+                    <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                    <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} allowDecimals={false} />
+                    <YAxis yAxisId="dir" orientation="right" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} unit="%" />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+                    <Bar yAxisId="esq" dataKey="Candidatos" radius={[4, 4, 0, 0]} fill="#2f4c73" />
+                    <Line yAxisId="dir" type="monotone" dataKey="Taxa de aprovação" stroke="#a64170" strokeWidth={2} dot={{ r: 3 }} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-5 mt-5">
+              {/* 10. Resposta pós-contato */}
+              <div className="card p-5">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Resposta pós-contato</h3>
+                <p className="text-xs text-navy-400 mb-4">Depois do WhatsApp, o candidato segue engajado?</p>
+                <p className="text-[26px] leading-none font-semibold text-navy-900 dark:text-white font-display">
+                  {respostaPosContato.taxaResposta != null ? `${respostaPosContato.taxaResposta}%` : '—'}
+                </p>
+                <p className="text-xs text-navy-400 mt-1.5 mb-3">
+                  enviaram documentação, de {respostaPosContato.contatadosN} contatados
+                </p>
+                {respostaPosContato.tempoMedio != null && (
+                  <p className="text-sm text-navy-600 dark:text-navy-300">
+                    Tempo médio até enviar: <strong className="text-navy-900 dark:text-white">{formatarDuracaoLonga(respostaPosContato.tempoMedio)}</strong>
+                  </p>
+                )}
+              </div>
+
+              {/* 12. Turno de treinamento x aprovação */}
+              <div className="card p-5 lg:col-span-2">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 mb-1">Turno de treinamento x aprovação</h3>
+                <p className="text-xs text-navy-400 mb-4">A disponibilidade de horário muda a taxa de aprovação final?</p>
+                {turnoTreinamento.length === 0 ? (
+                  <p className="text-sm text-navy-400">Ainda sem decisões suficientes.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {turnoTreinamento.map((t) => (
+                      <div key={t.turno}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-navy-700 dark:text-navy-200 font-medium">{t.turno}</span>
+                          <span className="text-navy-400">
+                            {t.taxa}% ({t.aprovados}/{t.decididos})
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-navy-50 dark:bg-navy-800 overflow-hidden">
+                          <div className="h-full rounded-full bg-navy-700" style={{ width: `${t.taxa}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 14. Meta mensal */}
+            <div className="card p-5 mt-5">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100 flex items-center gap-1.5">
+                  <Flag size={14} className="text-navy-400" /> Meta do mês
+                </h3>
+                {meta && <span className="text-xs text-navy-400">{entregasNoMes} de {meta.meta_contratacoes}</span>}
+              </div>
+              {meta ? (
+                <>
+                  <div className="h-2.5 rounded-full bg-navy-50 dark:bg-navy-800 overflow-hidden mt-3">
+                    <div
+                      className={`h-full rounded-full ${entregasNoMes >= meta.meta_contratacoes ? 'bg-sage-500' : 'bg-navy-700'}`}
+                      style={{ width: `${Math.min(100, Math.round((entregasNoMes / meta.meta_contratacoes) * 100))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-navy-400 mt-2">
+                    {entregasNoMes >= meta.meta_contratacoes
+                      ? 'Meta batida! 🎉'
+                      : `Faltam ${meta.meta_contratacoes - entregasNoMes} contratações para bater a meta deste mês.`}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-navy-400 mt-2">
+                  Nenhuma meta configurada para este mês — o analista pode definir uma em Administração.
+                </p>
+              )}
+            </div>
+
+            {/* 4/13. Mapa de calor geográfico */}
+            <div className="card p-5 mt-5">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+                <div>
+                  <h3 className="text-sm font-semibold text-navy-800 dark:text-navy-100">Mapa de calor — origem geográfica</h3>
+                  <p className="text-xs text-navy-400 mt-0.5">Onde os candidatos estão concentrados.</p>
+                </div>
+                <div className="flex gap-1 bg-navy-50 dark:bg-navy-800 rounded-lg p-1 w-fit">
+                  {[
+                    ['cidade', 'Por cidade'],
+                    ['bairro', 'Por bairro'],
+                  ].map(([v, label]) => (
+                    <button
+                      key={v}
+                      onClick={() => setNivelMapa(v)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        nivelMapa === v ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4">
+                <MapaDeCalor contagemPorLocal={contagemMapa} nivel={nivelMapa} />
+              </div>
             </div>
           </>
         )}
       </div>
     </Layout>
+
   )
 }

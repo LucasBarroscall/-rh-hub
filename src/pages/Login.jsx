@@ -48,12 +48,12 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img
-            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
             alt="Callink"
             className="h-8 w-auto dark:hidden"
           />
           <img
-            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
             alt="Callink"
             className="h-8 w-auto hidden dark:block brightness-0 invert"
           />

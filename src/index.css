@@ -66,3 +66,47 @@
   }
 }
 
+/* Editor de texto rico (react-quill) — ajustado ao visual do site */
+.rich-editor .ql-toolbar {
+  border-color: theme('colors.navy.100');
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  background: theme('colors.navy.50');
+}
+.rich-editor .ql-container {
+  border-color: theme('colors.navy.100');
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 15px;
+  min-height: 100px;
+}
+.dark .rich-editor .ql-toolbar {
+  border-color: theme('colors.navy.700');
+  background: theme('colors.navy.800');
+}
+.dark .rich-editor .ql-container {
+  border-color: theme('colors.navy.700');
+  color: white;
+}
+.dark .rich-editor .ql-stroke {
+  stroke: theme('colors.navy.300');
+}
+.dark .rich-editor .ql-fill {
+  fill: theme('colors.navy.300');
+}
+.dark .rich-editor .ql-picker {
+  color: theme('colors.navy.300');
+}
+
+/* Conteúdo de comentário renderizado (fora do editor) */
+.comentario-rico {
+  @apply text-xs text-navy-500 dark:text-navy-400 mt-1.5 leading-relaxed;
+}
+.comentario-rico img {
+  @apply max-w-full rounded-md mt-1.5;
+}
+.comentario-rico p {
+  @apply mb-1;
+}
+

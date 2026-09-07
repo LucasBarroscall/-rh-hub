@@ -501,3 +501,56 @@ alter table public.candidatos add column if not exists estado text;
 
 comment on column public.candidatos.logradouro is 'Preenchido automaticamente via ViaCEP a partir do CEP informado.';
 comment on column public.candidatos.numero is 'Número do endereço — único campo de endereço digitado manualmente quando o CEP é encontrado.';
+
+-- =========================================================
+-- RODADA 6 — cache de geolocalização (mapa de calor) e metas
+-- mensais configuráveis.
+-- =========================================================
+
+create table if not exists public.geocache (
+  chave text primary key,
+  latitude double precision,
+  longitude double precision,
+  encontrado boolean not null default true,
+  criado_em timestamptz not null default now()
+);
+
+comment on table public.geocache is 'Cache permanente de geocodificação (cidade/bairro → lat/lng) para o mapa de calor do dashboard, evita repetir consultas à API externa.';
+
+alter table public.geocache enable row level security;
+
+create policy "geocache_select_publico"
+  on public.geocache for select
+  to anon, authenticated
+  using (true);
+
+create policy "geocache_insert_autenticado"
+  on public.geocache for insert
+  to authenticated
+  with check (true);
+
+create table if not exists public.metas (
+  id uuid primary key default gen_random_uuid(),
+  mes date not null unique,
+  meta_contratacoes int not null,
+  criado_em timestamptz not null default now()
+);
+
+comment on table public.metas is 'Meta mensal de contratações (Entrega Realizada), configurável pelo analista, usada na barra de progresso do dashboard.';
+
+alter table public.metas enable row level security;
+
+create policy "metas_select_publico"
+  on public.metas for select
+  to authenticated
+  using (true);
+
+create policy "metas_insert_analista"
+  on public.metas for insert
+  to authenticated
+  with check (public.is_analista(auth.uid()));
+
+create policy "metas_update_analista"
+  on public.metas for update
+  to authenticated
+  using (public.is_analista(auth.uid()));

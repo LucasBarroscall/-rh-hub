@@ -5,7 +5,8 @@ import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
 import EditarOpcaoModal from '../components/EditarOpcaoModal'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil } from 'lucide-react'
+import EditorRico from '../components/EditorRico'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil, Flag } from 'lucide-react'
 import CampoFonte from '../components/CampoFonte'
 import CheckboxGroup from '../components/CheckboxGroup'
 import { useOpcoes } from '../lib/useOpcoes'
@@ -955,7 +956,9 @@ function AbaComentarios() {
 
   const [comentarios, setComentarios] = useState({})
   const [loading, setLoading] = useState(true)
-  const [salvandoCampo, setSalvandoCampo] = useState(null)
+  const [campoAtivo, setCampoAtivo] = useState(CAMPOS_COMENTAVEIS[0][0])
+  const [rascunho, setRascunho] = useState('')
+  const [salvando, setSalvando] = useState(false)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -972,15 +975,23 @@ function AbaComentarios() {
     carregar()
   }, [carregar])
 
-  async function salvar(campo) {
-    setSalvandoCampo(campo)
-    const texto = (comentarios[campo] || '').trim()
-    if (texto) {
-      await supabase.from('campo_comentarios').upsert({ campo, comentario: texto, atualizado_em: new Date().toISOString() })
+  useEffect(() => {
+    setRascunho(comentarios[campoAtivo] || '')
+  }, [campoAtivo, comentarios])
+
+  async function salvar() {
+    setSalvando(true)
+    const texto = (rascunho || '').trim()
+    const vazio = texto === '' || texto === '<p><br></p>'
+    if (!vazio) {
+      await supabase
+        .from('campo_comentarios')
+        .upsert({ campo: campoAtivo, comentario: texto, atualizado_em: new Date().toISOString() })
     } else {
-      await supabase.from('campo_comentarios').delete().eq('campo', campo)
+      await supabase.from('campo_comentarios').delete().eq('campo', campoAtivo)
     }
-    setSalvandoCampo(null)
+    setSalvando(false)
+    carregar()
   }
 
   return (
@@ -988,37 +999,42 @@ function AbaComentarios() {
       <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
         <MessageSquare size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
         <p>
-          O texto abaixo de cada campo aparece para quem estiver preenchendo o cadastro do candidato
-          (formulário público e "Adicionar candidato"). Deixe em branco e salve para remover.
+          O conteúdo abaixo de cada campo aparece para quem estiver preenchendo o cadastro do candidato
+          (formulário público e "Adicionar candidato"). Aceita negrito, itálico, listas, links e imagens.
         </p>
       </div>
 
-      {loading ? (
-        <p className="text-sm text-navy-400">Carregando…</p>
-      ) : (
-        <div className="space-y-3 max-w-2xl">
+      <div className="grid lg:grid-cols-[240px_1fr] gap-5">
+        <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[520px] overflow-y-auto">
           {CAMPOS_COMENTAVEIS.map(([campo, label]) => (
-            <div key={campo} className="card p-4">
-              <label className="field-label">{label}</label>
-              <div className="flex gap-2">
-                <input
-                  className="field-input"
-                  placeholder="Sem comentário"
-                  value={comentarios[campo] || ''}
-                  onChange={(e) => setComentarios((c) => ({ ...c, [campo]: e.target.value }))}
-                />
-                <button
-                  onClick={() => salvar(campo)}
-                  disabled={salvandoCampo === campo}
-                  className="btn-secondary flex-shrink-0"
-                >
-                  {salvandoCampo === campo ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            </div>
+            <button
+              key={campo}
+              onClick={() => setCampoAtivo(campo)}
+              className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between gap-2 ${
+                campoAtivo === campo ? 'bg-navy-50 dark:bg-navy-800 text-navy-900 dark:text-white font-medium' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50/60 dark:hover:bg-navy-800/60'
+              }`}
+            >
+              <span className="truncate">{label}</span>
+              {comentarios[campo] && <span className="h-1.5 w-1.5 rounded-full bg-navy-700 dark:bg-navy-300 flex-shrink-0" />}
+            </button>
           ))}
         </div>
-      )}
+
+        <div className="card p-5">
+          {loading ? (
+            <p className="text-sm text-navy-400">Carregando…</p>
+          ) : (
+            <>
+              <EditorRico value={rascunho} onChange={setRascunho} placeholder="Sem comentário para este campo…" />
+              <div className="flex justify-end mt-4">
+                <button onClick={salvar} disabled={salvando} className="btn-primary">
+                  {salvando ? 'Salvando…' : 'Salvar comentário'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1148,6 +1164,93 @@ function AbaLog() {
   )
 }
 
+const MESES_LABEL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+function AbaMetas() {
+  const [metas, setMetas] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [novoMes, setNovoMes] = useState(new Date().toISOString().slice(0, 7))
+  const [novaMeta, setNovaMeta] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase.from('metas').select('*').order('mes', { ascending: false })
+    if (!error) setMetas(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  async function salvar(e) {
+    e.preventDefault()
+    if (!novaMeta || Number(novaMeta) <= 0) return
+    setErro('')
+    setSalvando(true)
+    const { error } = await supabase
+      .from('metas')
+      .upsert({ mes: `${novoMes}-01`, meta_contratacoes: Number(novaMeta) }, { onConflict: 'mes' })
+    setSalvando(false)
+    if (error) {
+      setErro(error.message)
+      return
+    }
+    setNovaMeta('')
+    carregar()
+  }
+
+  function rotuloMes(mesISO) {
+    const [ano, mes] = mesISO.split('-')
+    return `${MESES_LABEL[Number(mes) - 1]} de ${ano}`
+  }
+
+  return (
+    <div>
+      <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
+        <Flag size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
+        <p>Defina quantas contratações (Entrega Realizada) são a meta de cada mês — o dashboard mostra o progresso automaticamente.</p>
+      </div>
+
+      <form onSubmit={salvar} className="flex flex-wrap items-end gap-3 mb-6">
+        <div>
+          <label className="field-label">Mês</label>
+          <input type="month" className="field-input" value={novoMes} onChange={(e) => setNovoMes(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">Meta de contratações</label>
+          <input
+            type="number"
+            min="1"
+            className="field-input w-32"
+            value={novaMeta}
+            onChange={(e) => setNovaMeta(e.target.value)}
+          />
+        </div>
+        <button type="submit" disabled={salvando} className="btn-primary">
+          {salvando ? 'Salvando…' : 'Salvar meta'}
+        </button>
+      </form>
+
+      {erro && <p className="text-sm text-clay-600 mb-4">{erro}</p>}
+
+      <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-w-md">
+        {loading && <p className="p-4 text-sm text-navy-400">Carregando…</p>}
+        {!loading && metas.length === 0 && <p className="p-4 text-sm text-navy-400">Nenhuma meta cadastrada ainda.</p>}
+        {!loading &&
+          metas.map((m) => (
+            <div key={m.id} className="flex items-center justify-between px-4 py-3 text-sm">
+              <span className="text-navy-800 dark:text-navy-100">{rotuloMes(m.mes)}</span>
+              <span className="text-navy-500 dark:text-navy-400">{m.meta_contratacoes} contratações</span>
+            </div>
+          ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [aba, setAba] = useState('candidatos')
 
@@ -1180,6 +1283,9 @@ export default function Admin() {
           <TabButton active={aba === 'log'} onClick={() => setAba('log')}>
             Log de alterações
           </TabButton>
+          <TabButton active={aba === 'metas'} onClick={() => setAba('metas')}>
+            Metas
+          </TabButton>
         </div>
 
         {aba === 'candidatos' && <AbaCandidatos />}
@@ -1187,6 +1293,7 @@ export default function Admin() {
         {aba === 'listas' && <AbaListas />}
         {aba === 'comentarios' && <AbaComentarios />}
         {aba === 'log' && <AbaLog />}
+        {aba === 'metas' && <AbaMetas />}
       </div>
     </Layout>
   )

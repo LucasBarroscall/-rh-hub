@@ -68,7 +68,7 @@ function SimNao({ label, value, onChange, name, comentario }) {
           </button>
         ))}
       </div>
-      {comentario && <p className="text-xs text-navy-500 dark:text-navy-400 mt-1.5">{comentario}</p>}
+      {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
     </div>
   )
 }
@@ -260,12 +260,12 @@ export default function CandidateForm() {
       <div className="max-w-xl mx-auto">
         <div className="flex flex-col items-center mb-6 sm:mb-8">
           <img
-            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
             alt="Callink"
             className="h-7 w-auto dark:hidden"
           />
           <img
-            src="https://callink.com.br/wp-content/uploads/2024/08/Callink-branca-e-colorida-3-1536x636.png"
+            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
             alt="Callink"
             className="h-7 w-auto hidden dark:block brightness-0 invert"
           />

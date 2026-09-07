@@ -161,6 +161,26 @@ do Excel. Os horários de trabalho/treinamento também são "limpos": se as
 opções escolhidas cobrem todos os períodos possíveis, vira "Total"; senão,
 os períodos ficam únicos e sem repetição (ex.: "Manhã | Tarde | Noite").
 
+## Mapa de calor geográfico
+
+O dashboard tem um mapa real (OpenStreetMap) com camada de calor, alternando
+entre visão por cidade e por bairro. Como não guardamos latitude/longitude,
+ele geocodifica sob demanda (API gratuita do Nominatim, ~1 consulta/segundo)
+e guarda o resultado permanentemente numa tabela de cache — só é lento na
+primeira vez que uma cidade/bairro aparece.
+
+## Metas mensais
+
+Em Administração → Metas, o analista define quantas contratações (Entrega
+Realizada) são a meta de cada mês. O dashboard mostra uma barra de progresso
+automática.
+
+## Comentários com formatação
+
+Os comentários de campo (Administração → Comentários) agora aceitam negrito,
+itálico, listas, links e imagens — é um editor de texto rico, não mais um
+campo simples.
+
 ## Observação sobre os campos
 
 O campo **Sexo** foi adicionado ao formulário do candidato porque o dashboard
