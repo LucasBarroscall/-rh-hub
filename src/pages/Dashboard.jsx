@@ -550,6 +550,8 @@ export default function Dashboard() {
     })
   }, [filtrados])
 
+  const etapasComData = ETAPAS_FUNIL.filter((e) => e.dataCampo)
+
   const temposEntreEtapas = useMemo(() => {
     const resultados = []
     for (let i = 0; i < etapasComData.length - 1; i++) {
