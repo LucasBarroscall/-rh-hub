@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Circle, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, Tooltip as MapTooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPin, RefreshCw } from 'lucide-react'
 import { geocodificar } from '../lib/geocoding'
+import { formatarNumero } from '../lib/status'
 
 // Cor interpolada de frio (poucos candidatos) a quente (muitos), usando a
-// paleta da marca — funciona como uma escala de calor sem depender de
-// nenhum plugin externo além do próprio Leaflet.
+// paleta da marca — funciona como escala de calor sem plugin externo.
 function corIntensidade(t) {
   const paradas = [
     [48, 207, 242], // cyan-400
@@ -25,12 +25,23 @@ function corIntensidade(t) {
   return `rgb(${r},${g},${bl})`
 }
 
+// Raios em metros — bem menores para bairro (distâncias curtas dentro de
+// uma cidade) do que para cidade (distâncias entre municípios).
+const RAIOS = {
+  cidade: { base: 3000, extra: 18000 },
+  bairro: { base: 250, extra: 900 },
+}
+
 function AjustarLimites({ pontos }) {
   const map = useMap()
   useEffect(() => {
     if (pontos.length === 0) return
+    if (pontos.length === 1) {
+      map.setView([pontos[0].latitude, pontos[0].longitude], 13)
+      return
+    }
     const bounds = L.latLngBounds(pontos.map((p) => [p.latitude, p.longitude]))
-    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 })
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 })
   }, [pontos, map])
   return null
 }
@@ -100,6 +111,8 @@ export default function MapaDeCalor({ contagemPorLocal, nivel }) {
   }
 
   const maxQuantidade = Math.max(...pontos.map((p) => p.quantidade))
+  const totalGeral = pontos.reduce((s, p) => s + p.quantidade, 0)
+  const raios = RAIOS[nivel] || RAIOS.cidade
 
   return (
     <div className="h-80 rounded-md overflow-hidden border border-navy-100 dark:border-navy-800">
@@ -110,14 +123,22 @@ export default function MapaDeCalor({ contagemPorLocal, nivel }) {
         />
         {pontos.map((p) => {
           const t = maxQuantidade ? p.quantidade / maxQuantidade : 0
-          const raio = 6000 + Math.sqrt(t) * 35000
+          const raio = raios.base + Math.sqrt(t) * raios.extra
+          const pct = totalGeral ? Math.round((p.quantidade / totalGeral) * 100) : 0
           return (
             <Circle
               key={`${p.latitude}-${p.longitude}`}
               center={[p.latitude, p.longitude]}
               radius={raio}
-              pathOptions={{ color: corIntensidade(t), fillColor: corIntensidade(t), fillOpacity: 0.45, weight: 1, opacity: 0.6 }}
+              pathOptions={{ color: corIntensidade(t), fillColor: corIntensidade(t), fillOpacity: 0.55, weight: 1, opacity: 0.7 }}
             >
+              <MapTooltip direction="top" opacity={1}>
+                <div className="text-xs">
+                  <strong>{p.nome}</strong>
+                  <br />
+                  {formatarNumero(p.quantidade)} candidato{p.quantidade !== 1 ? 's' : ''} · {pct}% do total
+                </div>
+              </MapTooltip>
             </Circle>
           )
         })}

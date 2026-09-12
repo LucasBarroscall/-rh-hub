@@ -2,18 +2,20 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import DuplicidadeModal from '../components/DuplicidadeModal'
+import EditorCandidato from '../components/EditorCandidato'
+import ConfirmarSenhaModal from '../components/ConfirmarSenhaModal'
 import { useDuplicidade } from '../lib/useDuplicidade'
 import { useComentarios } from '../lib/useComentarios'
 import ComentarioCampo from '../components/ComentarioCampo'
 import { formatarData, etapa2Completa } from '../lib/candidato'
-import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2, Filter } from 'lucide-react'
+import { statusAtual } from '../lib/status'
+import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2, Filter, MessageSquare, Pencil, Eye, EyeOff } from 'lucide-react'
 
 const FILTROS_ETAPA = [
   { id: '', label: 'Todos' },
-  { id: 'testado', label: 'Já fez o teste' },
-  { id: 'nao_testado', label: 'Ainda não fez' },
-  { id: 'aprovado', label: 'Aprovado no teste' },
-  { id: 'reprovado', label: 'Reprovado no teste' },
+  { id: 'Entrevista', label: 'Aguardando teste' },
+  { id: 'Teste de Digitação', label: 'Testado (aguardando próxima etapa)' },
+  { id: 'Reprovado no teste', label: 'Reprovado no teste' },
 ]
 
 export default function Interviewer2() {
@@ -23,6 +25,9 @@ export default function Interviewer2() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [mostrarEditor, setMostrarEditor] = useState(false)
+  const [resultadoVisivel, setResultadoVisivel] = useState(false)
+  const [mostrarSenhaModal, setMostrarSenhaModal] = useState(false)
   const [busca, setBusca] = useState('')
 
   const [wpm, setWpm] = useState('')
@@ -42,7 +47,7 @@ export default function Interviewer2() {
     const { data, error } = await query
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => sel ?? data[0] ?? null)
+      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -56,6 +61,10 @@ export default function Interviewer2() {
     setPrecisao(selecionado?.precisao ?? '')
     setAlerta(selecionado?.alerta_comportamental ?? '')
   }, [selecionado])
+
+  useEffect(() => {
+    setResultadoVisivel(false)
+  }, [selecionado?.id])
 
   async function atualizar(campos, { avancar = true } = {}) {
     if (!selecionado) return
@@ -92,8 +101,8 @@ export default function Interviewer2() {
     e.preventDefault()
     atualizar({
       teste_realizado: true,
-      wpm: wpm === '' ? null : Number(wpm),
-      precisao: precisao === '' ? null : Number(precisao),
+      wpm: wpm === '' ? null : Math.round(Number(wpm)),
+      precisao: precisao === '' ? null : Math.round(Number(precisao)),
       alerta_comportamental: alerta || null,
     })
   }
@@ -104,13 +113,7 @@ export default function Interviewer2() {
   const filaFiltrada = useMemo(() => {
     let f = fila
     if (filtroEtapa) {
-      f = f.filter((c) => {
-        if (filtroEtapa === 'testado') return c.teste_realizado === true
-        if (filtroEtapa === 'nao_testado') return c.teste_realizado == null
-        if (filtroEtapa === 'aprovado') return c.aprovado_teste === true
-        if (filtroEtapa === 'reprovado') return c.aprovado_teste === false
-        return true
-      })
+      f = f.filter((c) => statusAtual(c) === filtroEtapa)
     }
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
@@ -128,9 +131,18 @@ export default function Interviewer2() {
         <header className="mb-8 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Etapa 2 · Teste de digitação</h1>
-            <p className="text-navy-500 dark:text-navy-400 text-sm mt-1">
-              Aprovação automática: WPM ≥ 20 e Precisão ≥ 95%.
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-navy-500 dark:text-navy-400 text-sm">
+                {resultadoVisivel ? 'Aprovação automática: WPM ≥ 20 e Precisão ≥ 95%.' : 'Resultado oculto por padrão.'}
+              </p>
+              <button
+                onClick={() => (resultadoVisivel ? setResultadoVisivel(false) : setMostrarSenhaModal(true))}
+                title={resultadoVisivel ? 'Ocultar resultado' : 'Mostrar resultado (confirme sua senha)'}
+                className="text-navy-400 hover:text-navy-700 dark:hover:text-white"
+              >
+                {resultadoVisivel ? <Eye size={15} /> : <EyeOff size={15} />}
+              </button>
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-navy-600 dark:text-navy-300">
             <input
@@ -199,14 +211,25 @@ export default function Interviewer2() {
                     <p className="text-sm text-navy-500 dark:text-navy-400">Aprovado(a) na entrevista</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelecionado(null)}
-                  title="Fechar sem alterar"
-                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white flex-shrink-0"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button onClick={() => setMostrarEditor(true)} className="text-navy-400 hover:text-navy-700 dark:hover:text-white" title="Editar todos os campos do candidato">
+                    <Pencil size={17} />
+                  </button>
+                  <button onClick={() => setSelecionado(null)} title="Fechar sem alterar" className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
+
+              {selecionado.comentario_entrevistador1 && (
+                <div className="flex items-start gap-2 rounded-lg bg-navy-50 dark:bg-navy-800 px-3.5 py-3 mb-6 text-sm">
+                  <MessageSquare size={15} className="text-navy-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-navy-700 dark:text-navy-200">Comentário do Entrevistador 1</p>
+                    <p className="text-navy-600 dark:text-navy-300">{selecionado.comentario_entrevistador1}</p>
+                  </div>
+                </div>
+              )}
 
               {selecionado.teste_realizado === false ? (
                 <div className="rounded-lg bg-clay-500/10 text-clay-600 px-4 py-3.5 mb-6 flex items-center justify-between gap-3">
@@ -222,12 +245,24 @@ export default function Interviewer2() {
               ) : selecionado.teste_realizado === true ? (
                 <div
                   className={`rounded-lg px-4 py-3.5 mb-6 flex items-center justify-between gap-3 ${
-                    selecionado.aprovado_teste ? 'bg-sage-500/10 text-sage-600' : 'bg-clay-500/10 text-clay-600'
+                    !resultadoVisivel
+                      ? 'bg-navy-50 dark:bg-navy-800 text-navy-500 dark:text-navy-400'
+                      : selecionado.aprovado_teste
+                        ? 'bg-sage-500/10 text-sage-600'
+                        : 'bg-clay-500/10 text-clay-600'
                   }`}
                 >
                   <span className="text-sm font-medium">
-                    Resultado salvo: WPM {selecionado.wpm}, Precisão {selecionado.precisao}% —{' '}
-                    {selecionado.aprovado_teste ? 'aprovado' : 'reprovado'}
+                    {resultadoVisivel ? (
+                      <>
+                        Resultado salvo: WPM {selecionado.wpm}, Precisão {selecionado.precisao}% —{' '}
+                        {selecionado.aprovado_teste ? 'aprovado' : 'reprovado'}
+                      </>
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <EyeOff size={14} /> Resultado oculto — clique no olho ao lado do título para ver
+                      </span>
+                    )}
                   </span>
                   <button
                     onClick={desfazerResultado}
@@ -254,7 +289,7 @@ export default function Interviewer2() {
                       <label className="field-label">WPM (palavras por minuto)</label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="1"
                         min="0"
                         className="field-input"
                         value={wpm}
@@ -266,7 +301,7 @@ export default function Interviewer2() {
                       <label className="field-label">Precisão (%)</label>
                       <input
                         type="number"
-                        step="0.1"
+                        step="1"
                         min="0"
                         max="100"
                         className="field-input"
@@ -277,7 +312,7 @@ export default function Interviewer2() {
                     </div>
                   </div>
 
-                  {aprovadoPreview !== null && (
+                  {aprovadoPreview !== null && resultadoVisivel && (
                     <div
                       className={`flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium ${
                         aprovadoPreview ? 'bg-sage-500/10 text-sage-600' : 'bg-clay-500/10 text-clay-600'
@@ -323,6 +358,27 @@ export default function Interviewer2() {
             onRepetido={() => {
               dispensar()
               carregar()
+            }}
+          />
+        )}
+
+        {mostrarEditor && selecionado && (
+          <EditorCandidato
+            candidato={selecionado}
+            onClose={() => setMostrarEditor(false)}
+            onSaved={() => {
+              setMostrarEditor(false)
+              carregar()
+            }}
+          />
+        )}
+
+        {mostrarSenhaModal && (
+          <ConfirmarSenhaModal
+            onClose={() => setMostrarSenhaModal(false)}
+            onConfirmado={() => {
+              setResultadoVisivel(true)
+              setMostrarSenhaModal(false)
             }}
           />
         )}

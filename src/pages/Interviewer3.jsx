@@ -3,21 +3,32 @@ import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
+import EditorCandidato from '../components/EditorCandidato'
 import { useDuplicidade } from '../lib/useDuplicidade'
 import { useComentarios } from '../lib/useComentarios'
 import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
-import { ClipboardCheck, AlertTriangle, MessageCircle, X, Filter } from 'lucide-react'
+import { statusAtual } from '../lib/status'
+import { ClipboardCheck, AlertTriangle, MessageCircle, X, Filter, MessageSquare, Pencil } from 'lucide-react'
 
 const FILTROS_ETAPA = [
   { id: '', label: 'Todos' },
-  { id: 'contatado', label: 'Já contatado (WhatsApp)' },
-  { id: 'nao_contatado', label: 'Ainda não contatado' },
-  { id: 'doc_enviada', label: 'Documentação enviada' },
-  { id: 'exame_feito', label: 'Já fez o exame' },
-  { id: 'exame_pendente', label: 'Exame pendente' },
-  { id: 'onboarding_feito', label: 'Onboarding feito' },
-  { id: 'treinamento_feito', label: 'Treinamento feito' },
-  { id: 'alo_feito', label: 'Alô realizado' },
+  { id: 'Teste de Digitação', label: 'Aguardando contato' },
+  { id: 'Contato no WhatsApp', label: 'Contatado (aguardando solicitar doc.)' },
+  { id: 'Documentação Solicitada', label: 'Doc. solicitada (aguardando envio)' },
+  { id: 'Documentação Enviada', label: 'Doc. enviada (aguardando aprovação)' },
+  { id: 'Documentação Aprovada', label: 'Doc. aprovada (aguardando data do exame)' },
+  { id: 'Data do Exame', label: 'Exame marcado (aguardando comparecimento)' },
+  { id: 'Compareceu no Exame', label: 'Compareceu no exame (aguardando resultado)' },
+  { id: 'Aprovado no Exame', label: 'Aprovado no exame (aguardando onboarding)' },
+  { id: 'Exame atrasado', label: 'Exame atrasado' },
+  { id: 'Data do Onboarding', label: 'Onboarding marcado' },
+  { id: 'Onboarding', label: 'Onboarding feito (aguardando treinamento)' },
+  { id: 'Data do Treinamento', label: 'Treinamento marcado' },
+  { id: 'Treinamento', label: 'Treinamento feito (aguardando Alô)' },
+  { id: 'Data do Alô', label: 'Alô marcado' },
+  { id: 'Alô', label: 'Alô feito' },
+  { id: 'Entrega Realizada', label: 'Entrega realizada' },
+  { id: 'Reprovado', label: 'Reprovado' },
 ]
 
 // Campo booleano + campo de data que aparece quando marcado "Sim".
@@ -46,6 +57,7 @@ export default function Interviewer3() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [mostrarEditor, setMostrarEditor] = useState(false)
   const [busca, setBusca] = useState('')
   const [dataExame, setDataExame] = useState('')
   const [compliance, setCompliance] = useState('')
@@ -64,7 +76,7 @@ export default function Interviewer3() {
     const { data, error } = await query
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => sel ?? data[0] ?? null)
+      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -119,17 +131,7 @@ export default function Interviewer3() {
   const filaFiltrada = useMemo(() => {
     let f = fila
     if (filtroEtapa) {
-      f = f.filter((c) => {
-        if (filtroEtapa === 'contatado') return c.contatado_whatsapp === true
-        if (filtroEtapa === 'nao_contatado') return !c.contatado_whatsapp
-        if (filtroEtapa === 'doc_enviada') return c.enviou_documentacao === true
-        if (filtroEtapa === 'exame_feito') return c.compareceu_exame === true
-        if (filtroEtapa === 'exame_pendente') return !c.compareceu_exame
-        if (filtroEtapa === 'onboarding_feito') return c.compareceu_onboarding === true
-        if (filtroEtapa === 'treinamento_feito') return c.compareceu_treinamento === true
-        if (filtroEtapa === 'alo_feito') return c.compareceu_alo === true
-        return true
-      })
+      f = f.filter((c) => statusAtual(c) === filtroEtapa)
     }
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
@@ -225,14 +227,25 @@ export default function Interviewer3() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelecionado(null)}
-                  title="Fechar sem alterar"
-                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white flex-shrink-0"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button onClick={() => setMostrarEditor(true)} className="text-navy-400 hover:text-navy-700 dark:hover:text-white" title="Editar todos os campos do candidato">
+                    <Pencil size={17} />
+                  </button>
+                  <button onClick={() => setSelecionado(null)} title="Fechar sem alterar" className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
+
+              {selecionado.comentario_entrevistador1 && (
+                <div className="flex items-start gap-2 rounded-lg bg-navy-50 dark:bg-navy-800 px-3.5 py-3 mb-4 text-sm">
+                  <MessageSquare size={15} className="text-navy-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-navy-700 dark:text-navy-200">Comentário do Entrevistador 1</p>
+                    <p className="text-navy-600 dark:text-navy-300">{selecionado.comentario_entrevistador1}</p>
+                  </div>
+                </div>
+              )}
 
               {selecionado.alerta_comportamental && (
                 <div className="flex items-start gap-2 rounded-lg bg-amber-400/10 text-amber-700 dark:text-amber-300 px-3.5 py-3 mb-6 text-sm">
@@ -455,6 +468,17 @@ export default function Interviewer3() {
             onFechar={dispensar}
             onRepetido={() => {
               dispensar()
+              carregar()
+            }}
+          />
+        )}
+
+        {mostrarEditor && selecionado && (
+          <EditorCandidato
+            candidato={selecionado}
+            onClose={() => setMostrarEditor(false)}
+            onSaved={() => {
+              setMostrarEditor(false)
               carregar()
             }}
           />

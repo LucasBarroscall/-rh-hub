@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
-import { useComentarios } from '../lib/useComentarios'
+import { useComentariosCompleto } from '../lib/useComentarios'
 import { useViaCep } from '../lib/useViaCep'
 import ComentarioCampo from '../components/ComentarioCampo'
 import CampoFonte from '../components/CampoFonte'
@@ -19,6 +19,18 @@ import {
   normalizarTexto,
   normalizarDisponibilidade,
 } from '../lib/formatters'
+import Toast from '../components/Toast'
+
+const VALIDACOES = {
+  nome_completo: { teste: (v) => v.trim().length >= 3, mensagem: 'Digite o nome completo do candidato.' },
+  nome_mae: { teste: (v) => v.trim().length >= 3, mensagem: 'Digite o nome completo da mãe.' },
+  rg: { teste: (v) => v.trim().length >= 4, mensagem: 'RG inválido — confira os números digitados.' },
+  cpf: { teste: (v) => validarCPF(v), mensagem: 'CPF inválido — confira os números digitados.' },
+  telefone: { teste: (v) => v.replace(/\D/g, '').length === 11, mensagem: 'Telefone incompleto — informe DDD + número.' },
+  email: { teste: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), mensagem: 'E-mail inválido.' },
+  data_nascimento: { teste: (v) => validarDataBR(v), mensagem: 'Data de nascimento inválida — use dd/mm/aaaa.' },
+  cep: { teste: (v) => v.replace(/\D/g, '').length === 8, mensagem: 'CEP incompleto — informe os 8 números.' },
+}
 
 const CAMPOS_INICIAIS = {
   fonte: '',
@@ -75,13 +87,15 @@ function SimNao({ label, value, onChange, name, comentario }) {
 
 export default function CandidateForm() {
   const { opcoes, fontes } = useOpcoes()
-  const comentarios = useComentarios()
+  const { comentarios, titulos } = useComentariosCompleto()
   const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [enderecoStatus, setEnderecoStatus] = useState('pendente') // pendente | auto | manual
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  const [camposInvalidos, setCamposInvalidos] = useState(new Set())
+  const [toast, setToast] = useState('')
   const inicioRef = useRef(Date.now())
   const numeroRef = useRef(null)
   const consultandoRef = useRef(false)
@@ -96,6 +110,25 @@ export default function CandidateForm() {
 
   function normalizarAoSair(campo) {
     return () => set(campo, normalizarTexto(form[campo]))
+  }
+
+  function validarAoSair(campo, valor) {
+    const regra = VALIDACOES[campo]
+    if (!regra) return
+    const valorFinal = valor ?? form[campo]
+    if (!valorFinal) return // campo vazio ainda: deixa o "required" nativo cuidar disso
+    const ok = regra.teste(valorFinal)
+    setCamposInvalidos((s) => {
+      const novo = new Set(s)
+      if (ok) novo.delete(campo)
+      else novo.add(campo)
+      return novo
+    })
+    if (!ok) setToast(regra.mensagem)
+  }
+
+  function classeErro(campo) {
+    return camposInvalidos.has(campo) ? 'border-clay-500 ring-2 ring-clay-500/20' : ''
   }
 
   function handleChange(e) {
@@ -287,39 +320,44 @@ export default function CandidateForm() {
               subValor={form.rede_social}
               onSubChange={(v) => set('rede_social', v)}
               comentario={comentarios.fonte}
+              rotulo={titulos.fonte}
             />
           </section>
 
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h2>
             <div>
-              <label className="field-label">Nome completo</label>
+              <label className="field-label">{titulos.nome_completo || 'Nome completo'}</label>
               <input
                 name="nome_completo"
                 required
-                className="field-input"
+                className={`field-input ${classeErro('nome_completo')}`}
                 value={form.nome_completo}
                 onChange={handleChange}
-                onBlur={normalizarAoSair('nome_completo')}
+                onBlur={() => {
+                  normalizarAoSair('nome_completo')()
+                  validarAoSair('nome_completo', form.nome_completo)
+                }}
               />
               <ComentarioCampo texto={comentarios.nome_completo} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Nascimento</label>
+                <label className="field-label">{titulos.data_nascimento || 'Nascimento'}</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   name="data_nascimento"
                   required
-                  className="field-input"
+                  className={`field-input ${classeErro('data_nascimento')}`}
                   placeholder="dd/mm/aaaa"
                   value={form.data_nascimento}
                   onChange={handleDataNascimento}
+                  onBlur={() => validarAoSair('data_nascimento', form.data_nascimento)}
                 />
               </div>
               <div>
-                <label className="field-label">Sexo</label>
+                <label className="field-label">{titulos.sexo || 'Sexo'}</label>
                 <select name="sexo" required className="field-select" value={form.sexo} onChange={handleChange}>
                   <option value="" disabled>
                     Selecione
@@ -335,66 +373,73 @@ export default function CandidateForm() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">RG</label>
+                <label className="field-label">{titulos.rg || 'RG'}</label>
                 <input
                   name="rg"
                   required
                   inputMode="numeric"
-                  className="field-input"
+                  className={`field-input ${classeErro('rg')}`}
                   value={form.rg}
                   onChange={handleRG}
+                  onBlur={() => validarAoSair('rg', form.rg)}
                   placeholder="Somente números"
                 />
                 <ComentarioCampo texto={comentarios.rg} />
               </div>
               <div>
-                <label className="field-label">CPF</label>
+                <label className="field-label">{titulos.cpf || 'CPF'}</label>
                 <input
                   name="cpf"
                   required
                   inputMode="numeric"
-                  className="field-input"
+                  className={`field-input ${classeErro('cpf')}`}
                   value={form.cpf}
                   onChange={handleCPF}
+                  onBlur={() => validarAoSair('cpf', form.cpf)}
                   placeholder="000.000.000-00"
                 />
                 <ComentarioCampo texto={comentarios.cpf} />
               </div>
             </div>
             <div>
-              <label className="field-label">Nome da mãe</label>
+              <label className="field-label">{titulos.nome_mae || 'Nome da mãe'}</label>
               <input
                 name="nome_mae"
                 required
-                className="field-input"
+                className={`field-input ${classeErro('nome_mae')}`}
                 value={form.nome_mae}
                 onChange={handleChange}
-                onBlur={normalizarAoSair('nome_mae')}
+                onBlur={() => {
+                  normalizarAoSair('nome_mae')()
+                  validarAoSair('nome_mae', form.nome_mae)
+                }}
               />
               <ComentarioCampo texto={comentarios.nome_mae} />
             </div>
             <div>
-              <label className="field-label">Telefone</label>
+              <label className="field-label">{titulos.telefone || 'Telefone'}</label>
               <input
                 name="telefone"
                 required
                 inputMode="numeric"
-                className="field-input"
+                className={`field-input ${classeErro('telefone')}`}
                 value={form.telefone}
                 onChange={handleTelefone}
+                onBlur={() => validarAoSair('telefone', form.telefone)}
                 placeholder="(00) 0 0000-0000"
               />
               <ComentarioCampo texto={comentarios.telefone} />
             </div>
             <div>
-              <label className="field-label">E-mail</label>
+              <label className="field-label">{titulos.email || 'E-mail'}</label>
               <input
                 type="email"
                 name="email"
                 required
-                className="field-input"
+                className={`field-input ${classeErro('email')}`}
                 value={form.email}
                 onChange={handleChange}
+                onBlur={() => validarAoSair('email', form.email)}
                 placeholder="seuemail@exemplo.com"
               />
               <ComentarioCampo texto={comentarios.email} />
@@ -404,16 +449,19 @@ export default function CandidateForm() {
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h2>
             <div>
-              <label className="field-label">CEP</label>
+              <label className="field-label">{titulos.cep || 'CEP'}</label>
               <div className="relative">
                 <input
                   name="cep"
                   required
                   inputMode="numeric"
-                  className="field-input"
+                  className={`field-input ${classeErro('cep')}`}
                   value={form.cep}
                   onChange={handleCep}
-                  onBlur={handleCepBlur}
+                  onBlur={() => {
+                    handleCepBlur()
+                    validarAoSair('cep', form.cep)
+                  }}
                   placeholder="00000-000"
                 />
                 {carregandoCep && (
@@ -424,7 +472,7 @@ export default function CandidateForm() {
             </div>
 
             <div>
-              <label className="field-label">Rua / Logradouro</label>
+              <label className="field-label">{titulos.logradouro || 'Rua / Logradouro'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                 value={form.logradouro}
@@ -437,7 +485,7 @@ export default function CandidateForm() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Número</label>
+                <label className="field-label">{titulos.numero || 'Número'}</label>
                 <input
                   ref={numeroRef}
                   className="field-input"
@@ -447,7 +495,7 @@ export default function CandidateForm() {
                 />
               </div>
               <div>
-                <label className="field-label">Complemento</label>
+                <label className="field-label">{titulos.complemento || 'Complemento'}</label>
                 <input
                   className="field-input"
                   value={form.complemento}
@@ -458,7 +506,7 @@ export default function CandidateForm() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Bairro</label>
+                <label className="field-label">{titulos.bairro || 'Bairro'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                   value={form.bairro}
@@ -469,7 +517,7 @@ export default function CandidateForm() {
                 />
               </div>
               <div>
-                <label className="field-label">Cidade</label>
+                <label className="field-label">{titulos.cidade || 'Cidade'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                   value={form.cidade}
@@ -481,7 +529,7 @@ export default function CandidateForm() {
               </div>
             </div>
             <div>
-              <label className="field-label">Estado</label>
+              <label className="field-label">{titulos.estado || 'Estado'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
                 value={form.estado}
@@ -495,21 +543,21 @@ export default function CandidateForm() {
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h2>
             <CheckboxGroup
-              label="Horário de trabalho (pode marcar mais de um)"
+              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho (pode marcar mais de um)'}
               opcoes={opcoes.disponibilidade_horario_trabalho || []}
               valor={form.disponibilidade_horario_trabalho}
               onChange={(v) => set('disponibilidade_horario_trabalho', v)}
               comentario={comentarios.disponibilidade_horario_trabalho}
             />
             <CheckboxGroup
-              label="Horário de treinamento (pode marcar mais de um)"
+              label={titulos.disponibilidade_horario_treinamento || 'Horário de treinamento (pode marcar mais de um)'}
               opcoes={opcoes.disponibilidade_horario_treinamento || []}
               valor={form.disponibilidade_horario_treinamento}
               onChange={(v) => set('disponibilidade_horario_treinamento', v)}
               comentario={comentarios.disponibilidade_horario_treinamento}
             />
             <div>
-              <label className="field-label">Jornada de trabalho</label>
+              <label className="field-label">{titulos.disponibilidade_jornada || 'Jornada de trabalho'}</label>
               <select
                 name="disponibilidade_jornada"
                 required
@@ -533,28 +581,31 @@ export default function CandidateForm() {
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Outras informações</h2>
             <SimNao
-              label="Possui veículo próprio?"
+              label={titulos.possui_veiculo || 'Possui veículo próprio?'}
               name="possui_veiculo"
               value={form.possui_veiculo}
               onChange={set}
               comentario={comentarios.possui_veiculo}
             />
             <SimNao
-              label="Possui ensino superior?"
+              label={titulos.possui_ensino_superior || 'Possui ensino superior?'}
               name="possui_ensino_superior"
               value={form.possui_ensino_superior}
               onChange={set}
               comentario={comentarios.possui_ensino_superior}
             />
             <SimNao
-              label="Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?"
+              label={
+                titulos.concorda_turno_treinamento ||
+                'Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?'
+              }
               name="concorda_turno_treinamento"
               value={form.concorda_turno_treinamento}
               onChange={set}
               comentario={comentarios.concorda_turno_treinamento}
             />
             <div>
-              <label className="field-label">Observações</label>
+              <label className="field-label">{titulos.observacoes || 'Observações'}</label>
               <textarea
                 name="observacoes"
                 rows={3}
@@ -573,6 +624,7 @@ export default function CandidateForm() {
           </button>
         </form>
       </div>
+      <Toast mensagem={toast} onFechar={() => setToast('')} />
     </div>
   )
 }

@@ -35,7 +35,7 @@ export default function CheckboxGroup({ label, opcoes, valor, onChange, comentar
           )
         })}
       </div>
-      {comentario && <p className="text-xs text-navy-500 dark:text-navy-400 mt-1.5">{comentario}</p>}
+      {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
     </div>
   )
 }

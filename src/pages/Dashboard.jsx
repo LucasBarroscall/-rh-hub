@@ -48,6 +48,7 @@ const CAMPOS_FILTRO = [
   { chave: 'fonte', label: 'Origem' },
   { chave: 'sexo', label: 'Sexo' },
   { chave: 'cidade', label: 'Cidade' },
+  { chave: 'bairro', label: 'Bairro' },
   { chave: 'faixaEtaria', label: 'Faixa etária' },
   { chave: 'etapa', label: 'Etapa do funil' },
 ]
@@ -105,7 +106,7 @@ function ChartCard({ title, children, onClear, cleared }) {
   )
 }
 
-const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, etapa: null, faixaEtaria: null }
+const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, bairro: null, etapa: null, faixaEtaria: null }
 
 export default function Dashboard() {
   const [dados, setDados] = useState([])
@@ -151,6 +152,7 @@ export default function Dashboard() {
       if (filtros.fonte && c.fonte !== filtros.fonte) return false
       if (filtros.sexo && c.sexo !== filtros.sexo) return false
       if (filtros.cidade && c.cidade !== filtros.cidade) return false
+      if (filtros.bairro && c.bairro !== filtros.bairro) return false
       if (filtros.faixaEtaria && faixaEtariaDe(c.idade) !== filtros.faixaEtaria) return false
       if (filtros.etapa && etapaFunil(c) !== filtros.etapa) return false
       return true
@@ -162,17 +164,19 @@ export default function Dashboard() {
   }
 
   const opcoesPorCampo = useMemo(() => {
-    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), etapa: new Set() }
+    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), bairro: new Set(), etapa: new Set() }
     base.forEach((c) => {
       if (c.fonte) conj.fonte.add(c.fonte)
       if (c.sexo) conj.sexo.add(c.sexo)
       if (c.cidade) conj.cidade.add(c.cidade)
+      if (c.bairro) conj.bairro.add(c.bairro)
       conj.etapa.add(etapaFunil(c))
     })
     return {
       fonte: [...conj.fonte].sort(),
       sexo: [...conj.sexo].sort(),
       cidade: [...conj.cidade].sort(),
+      bairro: [...conj.bairro].sort(),
       etapa: [...conj.etapa].sort(),
       faixaEtaria: FAIXAS_ETARIAS,
     }
@@ -185,9 +189,9 @@ export default function Dashboard() {
   const taxaAprovacao = decididos.length ? Math.round((aprovados.length / decididos.length) * 100) : 0
   const testados = filtrados.filter((c) => c.teste_realizado)
   const wpmMedioNum = testados.length ? testados.reduce((s, c) => s + Number(c.wpm || 0), 0) / testados.length : null
-  const wpmMedio = wpmMedioNum != null ? formatarNumero(wpmMedioNum, 1) : '—'
+  const wpmMedio = wpmMedioNum != null ? formatarNumero(Math.round(wpmMedioNum)) : '—'
   const precisaoMediaNum = testados.length ? testados.reduce((s, c) => s + Number(c.precisao || 0), 0) / testados.length : null
-  const precisaoMedia = precisaoMediaNum != null ? formatarNumero(precisaoMediaNum, 1) : '—'
+  const precisaoMedia = precisaoMediaNum != null ? formatarNumero(Math.round(precisaoMediaNum)) : '—'
 
   const comTempoPreenchimento = filtrados.filter((c) => c.tempo_preenchimento_segundos != null)
   const tempoPreenchimentoMedio = comTempoPreenchimento.length
@@ -209,6 +213,7 @@ export default function Dashboard() {
   const porFonte = useMemo(() => contarPor('fonte'), [filtrados])
   const porSexo = useMemo(() => contarPor('sexo'), [filtrados])
   const porCidade = useMemo(() => contarPor('cidade').slice(0, 8), [filtrados])
+  const porBairro = useMemo(() => contarPor('bairro').slice(0, 8), [filtrados])
 
   const porFaixaEtaria = useMemo(() => {
     const faixas = { '<18': 0, '18-24': 0, '25-34': 0, '35-44': 0, '45+': 0 }
@@ -243,8 +248,8 @@ export default function Dashboard() {
       .sort((a, b) => a.chave.localeCompare(b.chave))
       .map((d) => ({
         data: rotuloGranular(d.chave, granularidade),
-        WPM: +(d.wpmTotal / d.n).toFixed(1),
-        Precisão: +(d.precisaoTotal / d.n).toFixed(1),
+        WPM: Math.round(d.wpmTotal / d.n),
+        Precisão: Math.round(d.precisaoTotal / d.n),
       }))
   }, [filtrados, granularidade])
 
@@ -281,7 +286,7 @@ export default function Dashboard() {
       .map((m) => ({
         ...m,
         taxa: m.decididos ? Math.round((m.aprovados / m.decididos) * 100) : null,
-        wpmMedio: m.wpmN ? +(m.wpmSoma / m.wpmN).toFixed(1) : null,
+        wpmMedio: m.wpmN ? Math.round(m.wpmSoma / m.wpmN) : null,
       }))
       .sort((a, b) => b.total - a.total)
   }, [filtrados])
@@ -741,7 +746,7 @@ export default function Dashboard() {
               </ChartCard>
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-5 mb-5">
+            <div className="grid lg:grid-cols-2 gap-5 mb-5">
               <ChartCard title="Por sexo" onClear={() => setFiltros((f) => ({ ...f, sexo: null }))} cleared={!filtros.sexo}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porSexo}>
@@ -774,7 +779,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Cidade / região" onClear={() => setFiltros((f) => ({ ...f, cidade: null }))} cleared={!filtros.cidade}>
+              <ChartCard title="Cidade" onClear={() => setFiltros((f) => ({ ...f, cidade: null }))} cleared={!filtros.cidade}>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={porCidade} layout="vertical" margin={{ left: 10 }}>
                     <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
@@ -784,6 +789,22 @@ export default function Dashboard() {
                     <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d) => alternarFiltro('cidade', d.name)}>
                       {porCidade.map((e, i) => (
                         <Cell key={e.name} fill={filtros.cidade === e.name || !filtros.cidade ? CORES[i % CORES.length] : '#D8DFF0'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+
+              <ChartCard title="Bairro" onClear={() => setFiltros((f) => ({ ...f, bairro: null }))} cleared={!filtros.bairro}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={porBairro} layout="vertical" margin={{ left: 10 }}>
+                    <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(d) => alternarFiltro('bairro', d.name)}>
+                      {porBairro.map((e, i) => (
+                        <Cell key={e.name} fill={filtros.bairro === e.name || !filtros.bairro ? CORES[i % CORES.length] : '#D8DFF0'} />
                       ))}
                     </Bar>
                   </BarChart>

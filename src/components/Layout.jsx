@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTema } from '../lib/useTema'
+import Relogio from './Relogio'
 
 const NAV_BY_ROLE = {
   analista: [
@@ -118,7 +119,12 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0">{children}</main>
+      <main className="flex-1 min-w-0 relative">
+        <div className="no-print absolute top-4 right-6 z-20 hidden sm:block">
+          <Relogio />
+        </div>
+        {children}
+      </main>
     </div>
   )
 }

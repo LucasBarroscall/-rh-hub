@@ -554,3 +554,41 @@ create policy "metas_update_analista"
   on public.metas for update
   to authenticated
   using (public.is_analista(auth.uid()));
+
+-- =========================================================
+-- RODADA 7 — títulos de campo customizáveis, comentário do
+-- Entrevistador 1, capa do formulário.
+-- =========================================================
+
+alter table public.campo_comentarios add column if not exists titulo text;
+comment on column public.campo_comentarios.titulo is 'Rótulo customizado do campo (sobrepõe o padrão do sistema) — deixe em branco para usar o rótulo padrão.';
+
+alter table public.candidatos add column if not exists comentario_entrevistador1 text;
+
+create table if not exists public.config_formulario (
+  id int primary key default 1,
+  capa_url text,
+  atualizado_em timestamptz not null default now(),
+  constraint somente_uma_linha check (id = 1)
+);
+
+comment on table public.config_formulario is 'Configuração global do formulário público do candidato (hoje só a imagem de capa).';
+
+alter table public.config_formulario enable row level security;
+
+create policy "config_formulario_select_publico"
+  on public.config_formulario for select
+  to anon, authenticated
+  using (true);
+
+create policy "config_formulario_upsert_analista"
+  on public.config_formulario for insert
+  to authenticated
+  with check (public.is_analista(auth.uid()));
+
+create policy "config_formulario_update_analista"
+  on public.config_formulario for update
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+insert into public.config_formulario (id, capa_url) values (1, null) on conflict (id) do nothing;

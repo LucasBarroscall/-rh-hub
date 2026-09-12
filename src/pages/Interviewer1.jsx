@@ -4,17 +4,18 @@ import Layout from '../components/Layout'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
 import DuplicidadeModal from '../components/DuplicidadeModal'
+import EditorCandidato from '../components/EditorCandidato'
 import { useDuplicidade } from '../lib/useDuplicidade'
 import { useComentarios } from '../lib/useComentarios'
 import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa } from '../lib/candidato'
-import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle, Filter } from 'lucide-react'
+import { statusAtual } from '../lib/status'
+import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle, Filter, Pencil } from 'lucide-react'
 
 const FILTROS_ETAPA = [
   { id: '', label: 'Todos' },
-  { id: 'compareceu', label: 'Já compareceu' },
-  { id: 'nao_compareceu', label: 'Não compareceu' },
-  { id: 'aprovado', label: 'Aprovado na entrevista' },
-  { id: 'reprovado', label: 'Reprovado na entrevista' },
+  { id: 'Cadastro', label: 'Aguardando entrevista' },
+  { id: 'Entrevista', label: 'Entrevistado (aguardando próxima etapa)' },
+  { id: 'Reprovado na entrevista', label: 'Reprovado na entrevista' },
 ]
 
 export default function Interviewer1() {
@@ -24,8 +25,10 @@ export default function Interviewer1() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
+  const [mostrarEditor, setMostrarEditor] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
   const [busca, setBusca] = useState('')
+  const [comentarioDraft, setComentarioDraft] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
 
@@ -36,7 +39,7 @@ export default function Interviewer1() {
     const { data, error } = await query
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => sel ?? data[0] ?? null)
+      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -44,6 +47,10 @@ export default function Interviewer1() {
   useEffect(() => {
     carregar()
   }, [carregar])
+
+  useEffect(() => {
+    setComentarioDraft(selecionado?.comentario_entrevistador1 || '')
+  }, [selecionado?.id])
 
   async function salvar(campos) {
     if (!selecionado) return
@@ -64,6 +71,19 @@ export default function Interviewer1() {
     }
   }
 
+  // Salva só o comentário, sem mexer no carimbo de data/hora da entrevista
+  // nem fechar o candidato selecionado (diferente de salvar()).
+  async function salvarComentario() {
+    if (!selecionado || comentarioDraft === (selecionado.comentario_entrevistador1 || '')) return
+    const { data, error } = await supabase
+      .from('candidatos')
+      .update({ comentario_entrevistador1: comentarioDraft || null })
+      .eq('id', selecionado.id)
+      .select()
+      .single()
+    if (!error) setSelecionado(data)
+  }
+
   function onCompareceu(v) {
     const campos = { compareceu_entrevista: v }
     if (v === null) campos.aprovado_entrevista = null
@@ -77,13 +97,7 @@ export default function Interviewer1() {
   const filaFiltrada = useMemo(() => {
     let f = fila
     if (filtroEtapa) {
-      f = f.filter((c) => {
-        if (filtroEtapa === 'compareceu') return c.compareceu_entrevista === true
-        if (filtroEtapa === 'nao_compareceu') return c.compareceu_entrevista === false
-        if (filtroEtapa === 'aprovado') return c.aprovado_entrevista === true
-        if (filtroEtapa === 'reprovado') return c.aprovado_entrevista === false
-        return true
-      })
+      f = f.filter((c) => statusAtual(c) === filtroEtapa)
     }
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
@@ -182,13 +196,18 @@ export default function Interviewer1() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelecionado(null)}
-                  title="Fechar sem alterar"
-                  className="text-navy-400 hover:text-navy-700 dark:hover:text-white flex-shrink-0"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => setMostrarEditor(true)}
+                    className="text-navy-400 hover:text-navy-700 dark:hover:text-white"
+                    title="Editar todos os campos do candidato"
+                  >
+                    <Pencil size={17} />
+                  </button>
+                  <button onClick={() => setSelecionado(null)} title="Fechar sem alterar" className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
@@ -269,6 +288,18 @@ export default function Interviewer1() {
                   />
                 </div>
               </div>
+
+              <div className="mt-5">
+                <label className="field-label">Comentário sobre o candidato (opcional)</label>
+                <textarea
+                  rows={2}
+                  className="field-input"
+                  placeholder="Observações da sua avaliação, para os próximos entrevistadores…"
+                  value={comentarioDraft}
+                  onChange={(e) => setComentarioDraft(e.target.value)}
+                  onBlur={salvarComentario}
+                />
+              </div>
             </div>
           ) : (
             <div className="card p-8 text-center text-navy-400 text-sm">
@@ -294,6 +325,17 @@ export default function Interviewer1() {
             onFechar={dispensar}
             onRepetido={() => {
               dispensar()
+              carregar()
+            }}
+          />
+        )}
+
+        {mostrarEditor && selecionado && (
+          <EditorCandidato
+            candidato={selecionado}
+            onClose={() => setMostrarEditor(false)}
+            onSaved={() => {
+              setMostrarEditor(false)
               carregar()
             }}
           />

@@ -2,15 +2,12 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
-import BoolToggle from '../components/BoolToggle'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
 import EditarOpcaoModal from '../components/EditarOpcaoModal'
 import EditorRico from '../components/EditorRico'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil, Flag } from 'lucide-react'
-import CampoFonte from '../components/CampoFonte'
-import CheckboxGroup from '../components/CheckboxGroup'
-import { useOpcoes } from '../lib/useOpcoes'
-import { normalizarTexto, normalizarDisponibilidade } from '../lib/formatters'
+import EditorCandidato from '../components/EditorCandidato'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil, Flag, FileDown } from 'lucide-react'
+import { normalizarTexto } from '../lib/formatters'
 
 // Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
 const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at', 'created_at']
@@ -32,260 +29,6 @@ function TabButton({ active, onClick, children }) {
     >
       {children}
     </button>
-  )
-}
-
-function EditorCandidato({ candidato, onClose, onSaved }) {
-  const [form, setForm] = useState(candidato)
-  const [salvando, setSalvando] = useState(false)
-  const { opcoes, fontes } = useOpcoes()
-
-  function set(campo, valor) {
-    setForm((f) => ({ ...f, [campo]: valor }))
-  }
-
-  async function salvar() {
-    setSalvando(true)
-    // remove campos calculados/gerados que não podem ser atualizados
-    // eslint-disable-next-line no-unused-vars
-    const { idade, aprovado_teste, updated_at, ...editavel } = form
-    editavel.nome_completo = normalizarTexto(editavel.nome_completo)
-    editavel.nome_mae = normalizarTexto(editavel.nome_mae)
-    editavel.bairro = normalizarTexto(editavel.bairro)
-    editavel.cidade = normalizarTexto(editavel.cidade)
-    editavel.disponibilidade_horario_trabalho = normalizarDisponibilidade(
-      (editavel.disponibilidade_horario_trabalho || '').split(' | ').filter(Boolean),
-      opcoes.disponibilidade_horario_trabalho || [],
-    )
-    editavel.disponibilidade_horario_treinamento = normalizarDisponibilidade(
-      (editavel.disponibilidade_horario_treinamento || '').split(' | ').filter(Boolean),
-      opcoes.disponibilidade_horario_treinamento || [],
-    )
-    const { error } = await supabase.from('candidatos').update(editavel).eq('id', candidato.id)
-    setSalvando(false)
-    if (!error) onSaved()
-  }
-
-  async function excluir() {
-    if (!confirm(`Excluir definitivamente o registro de ${candidato.nome_completo}?`)) return
-    setSalvando(true)
-    const { error } = await supabase.from('candidatos').delete().eq('id', candidato.id)
-    setSalvando(false)
-    if (!error) onSaved()
-  }
-
-  const campos = [
-    ['nome_completo', 'Nome completo'],
-    ['telefone', 'Telefone'],
-    ['email', 'E-mail'],
-    ['rg', 'RG'],
-    ['cpf', 'CPF'],
-    ['data_nascimento', 'Data de nascimento', 'date'],
-    ['nome_mae', 'Nome da mãe'],
-    ['endereco', 'Endereço (composto)'],
-    ['numero', 'Número'],
-    ['complemento', 'Complemento'],
-    ['bairro', 'Bairro'],
-    ['cidade', 'Cidade'],
-    ['estado', 'Estado'],
-    ['cep', 'CEP'],
-    ['data_entrevista', 'Data da entrevista', 'date'],
-    ['compliance', 'Compliance'],
-    ['data_contato_whatsapp', 'Data do contato (WhatsApp)', 'date'],
-    ['data_documentacao_solicitada', 'Data doc. solicitada', 'date'],
-    ['data_envio_documentacao', 'Data envio documentação', 'date'],
-    ['data_exame', 'Data do exame', 'date'],
-    ['data_onboarding', 'Data do onboarding', 'date'],
-    ['data_treinamento', 'Data do treinamento', 'date'],
-    ['data_alo', 'Data do Alô', 'date'],
-    ['wpm', 'WPM', 'number'],
-    ['precisao', 'Precisão (%)', 'number'],
-    ['observacoes', 'Observações'],
-  ]
-
-  return (
-    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
-      <div className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Editar candidato</h2>
-          <button onClick={onClose} className="text-navy-400 hover:text-navy-700 dark:hover:text-white">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="space-y-4 mb-4 pb-4 border-b border-navy-100 dark:border-navy-800">
-          <CampoFonte
-            fontes={fontes}
-            fonteValor={form.fonte || ''}
-            onFonteChange={(v) => set('fonte', v)}
-            detalheValor={form.nome_indicador || ''}
-            onDetalheChange={(v) => set('nome_indicador', v)}
-            subValor={form.rede_social || ''}
-            onSubChange={(v) => set('rede_social', v)}
-          />
-          <div>
-            <label className="field-label">Sexo</label>
-            <select className="field-select" value={form.sexo || ''} onChange={(e) => set('sexo', e.target.value)}>
-              <option value="" disabled>
-                Selecione
-              </option>
-              {(opcoes.sexo || []).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <CheckboxGroup
-            label="Horário de trabalho"
-            opcoes={opcoes.disponibilidade_horario_trabalho || []}
-            valor={form.disponibilidade_horario_trabalho || ''}
-            onChange={(v) => set('disponibilidade_horario_trabalho', v)}
-          />
-          <CheckboxGroup
-            label="Horário de treinamento"
-            opcoes={opcoes.disponibilidade_horario_treinamento || []}
-            valor={form.disponibilidade_horario_treinamento || ''}
-            onChange={(v) => set('disponibilidade_horario_treinamento', v)}
-          />
-          <div>
-            <label className="field-label">Jornada de trabalho</label>
-            <select
-              className="field-select"
-              value={form.disponibilidade_jornada || ''}
-              onChange={(e) => set('disponibilidade_jornada', e.target.value)}
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {(opcoes.disponibilidade_jornada || []).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-4">
-          {campos.map(([campo, label, tipo]) => (
-            <div key={campo}>
-              <label className="field-label">{label}</label>
-              <input
-                type={tipo || 'text'}
-                className="field-input"
-                value={form[campo] ?? ''}
-                onChange={(e) => set(campo, e.target.value)}
-              />
-            </div>
-          ))}
-        </div>
-
-        <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
-          <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-4">
-            Status do funil — aprovar/reprovar em qualquer etapa
-          </h3>
-          <div className="grid sm:grid-cols-2 gap-4 mb-4">
-            <BoolToggle
-              label="Compareceu na entrevista?"
-              value={form.compareceu_entrevista}
-              onChange={(v) => set('compareceu_entrevista', v)}
-              disabled={salvando}
-            />
-            <BoolToggle
-              label="Aprovado na entrevista?"
-              value={form.aprovado_entrevista}
-              onChange={(v) => set('aprovado_entrevista', v)}
-              disabled={salvando}
-              semantic
-            />
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4 mb-4">
-            <BoolToggle
-              label="Realizou o teste de digitação?"
-              value={form.teste_realizado}
-              onChange={(v) => set('teste_realizado', v)}
-              disabled={salvando}
-            />
-            <div>
-              <label className="field-label">Alerta de comportamento</label>
-              <input
-                className="field-input"
-                value={form.alerta_comportamental ?? ''}
-                onChange={(e) => set('alerta_comportamental', e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-x-4 gap-y-4 mb-4">
-            {[
-              ['documentacao_solicitada', 'Documentação solicitada?', 'data_documentacao_solicitada'],
-              ['compareceu_exame', 'Compareceu no exame?', null],
-              ['aprovado_exame', 'Aprovado no exame?', null],
-              ['enviou_documentacao', 'Enviou documentação?', 'data_envio_documentacao'],
-              ['aprovado_documentacao', 'Aprovado na documentação?', null],
-              ['compareceu_onboarding', 'Compareceu no onboarding?', 'data_onboarding'],
-              ['compareceu_treinamento', 'Compareceu no treinamento?', 'data_treinamento'],
-              ['contatado_whatsapp', 'Contatado via WhatsApp?', 'data_contato_whatsapp'],
-              ['compareceu_alo', 'Alô realizado?', 'data_alo'],
-            ].map(([campo, label, campoData]) => (
-              <BoolToggle
-                key={campo}
-                label={label}
-                value={form[campo]}
-                onChange={(v) => {
-                  set(campo, v)
-                  if (campoData && v === true && !form[campoData]) {
-                    set(campoData, new Date().toISOString().slice(0, 10))
-                  }
-                }}
-                disabled={salvando}
-              />
-            ))}
-          </div>
-          <p className="text-xs text-navy-400 -mt-2 mb-4">
-            Marcar "Sim" nesses campos preenche a data correspondente automaticamente (editável na lista de campos acima).
-          </p>
-          <div>
-            <p className="field-label mb-2">Decisão final</p>
-            <div className="grid grid-cols-3 gap-3">
-              {['Aprovado', 'Reprovado', 'Pendente'].map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  disabled={salvando}
-                  onClick={() => set('decisao_final', v === 'Pendente' ? null : v)}
-                  className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
-                    (form.decisao_final ?? 'Pendente') === v
-                      ? v === 'Aprovado'
-                        ? 'border-sage-500 bg-sage-500 text-white'
-                        : v === 'Reprovado'
-                          ? 'border-clay-500 bg-clay-500 text-white'
-                          : 'border-navy-700 bg-navy-700 text-white'
-                      : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mt-6 pt-5 border-t border-navy-100 dark:border-navy-800">
-          <button onClick={excluir} disabled={salvando} className="flex items-center gap-1.5 text-sm text-clay-600 hover:text-clay-700">
-            <Trash2 size={15} /> Excluir registro
-          </button>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="btn-secondary">
-              Cancelar
-            </button>
-            <button onClick={salvar} disabled={salvando} className="btn-primary flex items-center gap-1.5">
-              <Save size={15} /> {salvando ? 'Salvando…' : 'Salvar alterações'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -358,6 +101,50 @@ function AbaCandidatos() {
     URL.revokeObjectURL(url)
   }
 
+  function baixarModelo() {
+    const linhaExemplo = {
+      fonte: 'Indicação',
+      rede_social: '',
+      nome_indicador: 'MARIA SILVA',
+      nome_completo: 'JOAO DA SILVA SANTOS',
+      telefone: '(11) 9 8888-7777',
+      rg: '123456789',
+      cpf: '12345678900',
+      data_nascimento: '1995-05-20',
+      sexo: 'Masculino',
+      nome_mae: 'ANA SILVA SANTOS',
+      logradouro: 'RUA DAS FLORES',
+      numero: '123',
+      complemento: 'APTO 45',
+      bairro: 'CENTRO',
+      cidade: 'ARACAJU',
+      estado: 'SE',
+      cep: '49000000',
+      endereco: 'RUA DAS FLORES, 123 - APTO 45',
+      email: 'joao.silva@exemplo.com',
+      disponibilidade_horario_trabalho: 'Manhã | Tarde',
+      disponibilidade_horario_treinamento: 'Manhã/Tarde',
+      disponibilidade_jornada: 'Período integral',
+      possui_veiculo: 'true',
+      concorda_turno_treinamento: 'true',
+      possui_ensino_superior: 'false',
+      observacoes: '',
+    }
+    const csv = Papa.unparse([linhaExemplo])
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'modelo_importacao_candidatos.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Campos que seguem o padrão "MAIÚSCULA + sem acento/pontuação" do sistema
+  const CAMPOS_NORMALIZAR_COMPLETO = ['nome_completo', 'nome_mae', 'nome_indicador', 'logradouro', 'bairro', 'cidade']
+  // Campos que só ficam em maiúsculas, mantendo acentuação/pontuação (texto livre)
+  const CAMPOS_NORMALIZAR_LEVE = ['observacoes', 'compliance', 'alerta_comportamental', 'complemento']
+
   function importarCSV(e) {
     const arquivo = e.target.files?.[0]
     if (!arquivo) return
@@ -371,9 +158,16 @@ function AbaCandidatos() {
           const copia = { ...linha }
           COLUNAS_GERADAS.forEach((col) => delete copia[col])
           if ('id' in copia && !copia.id) delete copia.id
-          // Campos vazios viram null em vez de string vazia
+          // Campos vazios viram null em vez de string vazia; texto é
+          // normalizado pro mesmo padrão usado no cadastro pelo site.
           Object.keys(copia).forEach((k) => {
-            if (copia[k] === '') copia[k] = null
+            if (copia[k] === '') {
+              copia[k] = null
+              return
+            }
+            if (typeof copia[k] !== 'string') return
+            if (CAMPOS_NORMALIZAR_COMPLETO.includes(k)) copia[k] = normalizarTexto(copia[k])
+            else if (CAMPOS_NORMALIZAR_LEVE.includes(k)) copia[k] = copia[k].toUpperCase()
           })
           return copia
         })
@@ -412,6 +206,9 @@ function AbaCandidatos() {
               <Trash2 size={15} /> Excluir {selecionados.size} selecionado(s)
             </button>
           )}
+          <button onClick={baixarModelo} className="btn-secondary flex items-center gap-1.5">
+            <FileDown size={15} /> Baixar modelo
+          </button>
           <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
             <Download size={15} /> Exportar CSV
           </button>
@@ -505,6 +302,7 @@ function AbaCandidatos() {
             setEditando(null)
             carregar()
           }}
+          podeExcluir
         />
       )}
     </div>
@@ -955,9 +753,11 @@ function AbaComentarios() {
   ]
 
   const [comentarios, setComentarios] = useState({})
+  const [titulos, setTitulos] = useState({})
   const [loading, setLoading] = useState(true)
   const [campoAtivo, setCampoAtivo] = useState(CAMPOS_COMENTAVEIS[0][0])
   const [rascunho, setRascunho] = useState('')
+  const [rascunhoTitulo, setRascunhoTitulo] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   const carregar = useCallback(async () => {
@@ -965,8 +765,13 @@ function AbaComentarios() {
     const { data, error } = await supabase.from('campo_comentarios').select('*')
     if (!error) {
       const mapa = {}
-      data.forEach((c) => (mapa[c.campo] = c.comentario))
+      const mapaTitulos = {}
+      data.forEach((c) => {
+        mapa[c.campo] = c.comentario
+        if (c.titulo) mapaTitulos[c.campo] = c.titulo
+      })
       setComentarios(mapa)
+      setTitulos(mapaTitulos)
     }
     setLoading(false)
   }, [])
@@ -977,16 +782,21 @@ function AbaComentarios() {
 
   useEffect(() => {
     setRascunho(comentarios[campoAtivo] || '')
-  }, [campoAtivo, comentarios])
+    setRascunhoTitulo(titulos[campoAtivo] || '')
+  }, [campoAtivo, comentarios, titulos])
 
   async function salvar() {
     setSalvando(true)
     const texto = (rascunho || '').trim()
     const vazio = texto === '' || texto === '<p><br></p>'
-    if (!vazio) {
-      await supabase
-        .from('campo_comentarios')
-        .upsert({ campo: campoAtivo, comentario: texto, atualizado_em: new Date().toISOString() })
+    const tituloLimpo = rascunhoTitulo.trim() || null
+    if (!vazio || tituloLimpo) {
+      await supabase.from('campo_comentarios').upsert({
+        campo: campoAtivo,
+        comentario: vazio ? null : texto,
+        titulo: tituloLimpo,
+        atualizado_em: new Date().toISOString(),
+      })
     } else {
       await supabase.from('campo_comentarios').delete().eq('campo', campoAtivo)
     }
@@ -999,13 +809,14 @@ function AbaComentarios() {
       <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
         <MessageSquare size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
         <p>
-          O conteúdo abaixo de cada campo aparece para quem estiver preenchendo o cadastro do candidato
-          (formulário público e "Adicionar candidato"). Aceita negrito, itálico, listas, links e imagens.
+          Troque o título exibido do campo e/ou escreva um comentário de apoio — ambos aparecem no
+          cadastro do candidato (formulário público e "Adicionar candidato"). O comentário aceita
+          negrito, itálico, listas, links e imagens.
         </p>
       </div>
 
       <div className="grid lg:grid-cols-[240px_1fr] gap-5">
-        <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[520px] overflow-y-auto">
+        <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[560px] overflow-y-auto">
           {CAMPOS_COMENTAVEIS.map(([campo, label]) => (
             <button
               key={campo}
@@ -1014,8 +825,11 @@ function AbaComentarios() {
                 campoAtivo === campo ? 'bg-navy-50 dark:bg-navy-800 text-navy-900 dark:text-white font-medium' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50/60 dark:hover:bg-navy-800/60'
               }`}
             >
-              <span className="truncate">{label}</span>
-              {comentarios[campo] && <span className="h-1.5 w-1.5 rounded-full bg-navy-700 dark:bg-navy-300 flex-shrink-0" />}
+              <span className="truncate">{titulos[campo] || label}</span>
+              <span className="flex items-center gap-1 flex-shrink-0">
+                {titulos[campo] && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" title="Título customizado" />}
+                {comentarios[campo] && <span className="h-1.5 w-1.5 rounded-full bg-navy-700 dark:bg-navy-300" title="Tem comentário" />}
+              </span>
             </button>
           ))}
         </div>
@@ -1025,10 +839,23 @@ function AbaComentarios() {
             <p className="text-sm text-navy-400">Carregando…</p>
           ) : (
             <>
-              <EditorRico value={rascunho} onChange={setRascunho} placeholder="Sem comentário para este campo…" />
+              <div className="mb-4">
+                <label className="field-label">Título do campo</label>
+                <input
+                  className="field-input"
+                  placeholder={CAMPOS_COMENTAVEIS.find(([c]) => c === campoAtivo)?.[1]}
+                  value={rascunhoTitulo}
+                  onChange={(e) => setRascunhoTitulo(e.target.value)}
+                />
+                <p className="text-xs text-navy-400 mt-1">Deixe em branco para usar o título padrão.</p>
+              </div>
+              <div className="mb-1">
+                <label className="field-label">Comentário de apoio</label>
+                <EditorRico value={rascunho} onChange={setRascunho} placeholder="Sem comentário para este campo…" />
+              </div>
               <div className="flex justify-end mt-4">
                 <button onClick={salvar} disabled={salvando} className="btn-primary">
-                  {salvando ? 'Salvando…' : 'Salvar comentário'}
+                  {salvando ? 'Salvando…' : 'Salvar'}
                 </button>
               </div>
             </>

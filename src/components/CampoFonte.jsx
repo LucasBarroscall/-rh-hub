@@ -7,13 +7,14 @@ export default function CampoFonte({
   subValor,
   onSubChange,
   comentario,
+  rotulo,
 }) {
   const selecionada = fontes.find((f) => f.valor === fonteValor)
 
   return (
     <>
       <div>
-        <label className="field-label">Fonte</label>
+        <label className="field-label">{rotulo || 'Fonte'}</label>
         <select className="field-select" required value={fonteValor} onChange={(e) => onFonteChange(e.target.value)}>
           <option value="" disabled>
             Selecione
