@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
-import { useComentarios } from '../lib/useComentarios'
+import { useComentariosCompleto } from '../lib/useComentarios'
 import { useViaCep } from '../lib/useViaCep'
 import ComentarioCampo from './ComentarioCampo'
 import CampoFonte from './CampoFonte'
@@ -74,7 +74,7 @@ function SimNao({ label, value, onChange, name }) {
 
 export default function AddCandidateModal({ onClose, onSaved }) {
   const { opcoes, fontes } = useOpcoes()
-  const comentarios = useComentarios()
+  const { comentarios, titulos } = useComentariosCompleto()
   const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [enderecoStatus, setEnderecoStatus] = useState('pendente')
@@ -233,13 +233,14 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               subValor={form.rede_social}
               onSubChange={(v) => set('rede_social', v)}
               comentario={comentarios.fonte}
+              rotulo={titulos.fonte}
             />
           </section>
 
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h3>
             <div>
-              <label className="field-label">Nome completo</label>
+              <label className="field-label">{titulos.nome_completo || 'Nome completo'}</label>
               <input
                 name="nome_completo"
                 required
@@ -251,7 +252,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Data de nascimento</label>
+                <label className="field-label">{titulos.data_nascimento || 'Data de nascimento'}</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -264,7 +265,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="field-label">Sexo</label>
+                <label className="field-label">{titulos.sexo || 'Sexo'}</label>
                 <select name="sexo" required className="field-select" value={form.sexo} onChange={handleChange}>
                   <option value="" disabled>
                     Selecione
@@ -279,7 +280,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">RG</label>
+                <label className="field-label">{titulos.rg || 'RG'}</label>
                 <input
                   name="rg"
                   required
@@ -291,7 +292,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="field-label">CPF</label>
+                <label className="field-label">{titulos.cpf || 'CPF'}</label>
                 <input
                   name="cpf"
                   required
@@ -304,7 +305,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               </div>
             </div>
             <div>
-              <label className="field-label">Nome da mãe</label>
+              <label className="field-label">{titulos.nome_mae || 'Nome da mãe'}</label>
               <input
                 name="nome_mae"
                 required
@@ -316,7 +317,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Telefone</label>
+                <label className="field-label">{titulos.telefone || 'Telefone'}</label>
                 <input
                   name="telefone"
                   required
@@ -328,7 +329,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="field-label">E-mail</label>
+                <label className="field-label">{titulos.email || 'E-mail'}</label>
                 <input
                   type="email"
                   name="email"
@@ -345,7 +346,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h3>
             <div>
-              <label className="field-label">CEP</label>
+              <label className="field-label">{titulos.cep || 'CEP'}</label>
               <div className="relative">
                 <input
                   name="cep"
@@ -364,7 +365,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               {erroCep && <p className="text-xs text-clay-600 mt-1.5">{erroCep}</p>}
             </div>
             <div>
-              <label className="field-label">Rua / Logradouro</label>
+              <label className="field-label">{titulos.logradouro || 'Rua / Logradouro'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                 value={form.logradouro}
@@ -377,7 +378,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Número</label>
+                <label className="field-label">{titulos.numero || 'Número'}</label>
                 <input
                   ref={numeroRef}
                   className="field-input"
@@ -387,7 +388,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="field-label">Complemento</label>
+                <label className="field-label">{titulos.complemento || 'Complemento'}</label>
                 <input
                   className="field-input"
                   value={form.complemento}
@@ -398,7 +399,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">Bairro</label>
+                <label className="field-label">{titulos.bairro || 'Bairro'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                   value={form.bairro}
@@ -409,7 +410,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="field-label">Cidade</label>
+                <label className="field-label">{titulos.cidade || 'Cidade'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
                   value={form.cidade}
@@ -421,7 +422,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               </div>
             </div>
             <div>
-              <label className="field-label">Estado</label>
+              <label className="field-label">{titulos.estado || 'Estado'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
                 value={form.estado}
@@ -435,19 +436,19 @@ export default function AddCandidateModal({ onClose, onSaved }) {
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h3>
             <CheckboxGroup
-              label="Horário de trabalho (pode marcar mais de um)"
+              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho (pode marcar mais de um)'}
               opcoes={opcoes.disponibilidade_horario_trabalho || []}
               valor={form.disponibilidade_horario_trabalho}
               onChange={(v) => set('disponibilidade_horario_trabalho', v)}
             />
             <CheckboxGroup
-              label="Horário de treinamento (pode marcar mais de um)"
+              label={titulos.disponibilidade_horario_treinamento || 'Horário de treinamento (pode marcar mais de um)'}
               opcoes={opcoes.disponibilidade_horario_treinamento || []}
               valor={form.disponibilidade_horario_treinamento}
               onChange={(v) => set('disponibilidade_horario_treinamento', v)}
             />
             <div>
-              <label className="field-label">Jornada de trabalho</label>
+              <label className="field-label">{titulos.disponibilidade_jornada || 'Jornada de trabalho'}</label>
               <select
                 name="disponibilidade_jornada"
                 required
@@ -469,16 +470,16 @@ export default function AddCandidateModal({ onClose, onSaved }) {
 
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Outras informações</h3>
-            <SimNao label="Possui veículo próprio?" name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
-            <SimNao label="Possui ensino superior?" name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
+            <SimNao label={titulos.possui_veiculo || 'Possui veículo próprio?'} name="possui_veiculo" value={form.possui_veiculo} onChange={set} />
+            <SimNao label={titulos.possui_ensino_superior || 'Possui ensino superior?'} name="possui_ensino_superior" value={form.possui_ensino_superior} onChange={set} />
             <SimNao
-              label="Concorda com o turno de treinamento fora da jornada?"
+              label={titulos.concorda_turno_treinamento || 'Concorda com o turno de treinamento fora da jornada?'}
               name="concorda_turno_treinamento"
               value={form.concorda_turno_treinamento}
               onChange={set}
             />
             <div>
-              <label className="field-label">Observações</label>
+              <label className="field-label">{titulos.observacoes || 'Observações'}</label>
               <textarea name="observacoes" rows={3} className="field-input" value={form.observacoes} onChange={handleChange} />
             </div>
           </section>

@@ -592,3 +592,31 @@ create policy "config_formulario_update_analista"
   using (public.is_analista(auth.uid()));
 
 insert into public.config_formulario (id, capa_url) values (1, null) on conflict (id) do nothing;
+
+-- =========================================================
+-- RODADA 8 — bucket de armazenamento para a capa do
+-- formulário do candidato.
+-- =========================================================
+insert into storage.buckets (id, name, public)
+values ('formulario', 'formulario', true)
+on conflict (id) do nothing;
+
+create policy "formulario_select_publico"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'formulario');
+
+create policy "formulario_insert_analista"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'formulario' and public.is_analista(auth.uid()));
+
+create policy "formulario_update_analista"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'formulario' and public.is_analista(auth.uid()));
+
+create policy "formulario_delete_analista"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'formulario' and public.is_analista(auth.uid()));

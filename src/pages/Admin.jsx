@@ -6,7 +6,7 @@ import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
 import EditarOpcaoModal from '../components/EditarOpcaoModal'
 import EditorRico from '../components/EditorRico'
 import EditorCandidato from '../components/EditorCandidato'
-import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil, Flag, FileDown } from 'lucide-react'
+import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, MessageSquare, ChevronUp, ChevronDown, Download, Upload, Printer, Pencil, Flag, FileDown, Image as ImageIcon } from 'lucide-react'
 import { normalizarTexto } from '../lib/formatters'
 
 // Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
@@ -1078,6 +1078,96 @@ function AbaMetas() {
   )
 }
 
+function AbaFormulario() {
+  const [config, setConfig] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+  const inputRef = useRef(null)
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('config_formulario').select('*').eq('id', 1).maybeSingle()
+    setConfig(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  async function enviarImagem(e) {
+    const arquivo = e.target.files?.[0]
+    if (!arquivo) return
+    if (!arquivo.type.startsWith('image/')) {
+      setErro('Selecione um arquivo de imagem.')
+      return
+    }
+    setErro('')
+    setEnviando(true)
+    const nomeArquivo = `capa-${Date.now()}.${arquivo.name.split('.').pop()}`
+    const { error: erroUpload } = await supabase.storage.from('formulario').upload(nomeArquivo, arquivo, { upsert: true })
+    if (erroUpload) {
+      setEnviando(false)
+      setErro(`Não foi possível enviar a imagem: ${erroUpload.message}`)
+      return
+    }
+    const { data: urlData } = supabase.storage.from('formulario').getPublicUrl(nomeArquivo)
+    const { error: erroSalvar } = await supabase
+      .from('config_formulario')
+      .upsert({ id: 1, capa_url: urlData.publicUrl, atualizado_em: new Date().toISOString() })
+    setEnviando(false)
+    if (inputRef.current) inputRef.current.value = ''
+    if (erroSalvar) {
+      setErro(erroSalvar.message)
+      return
+    }
+    carregar()
+  }
+
+  async function remover() {
+    if (!confirm('Remover a imagem de capa do formulário?')) return
+    const { error } = await supabase.from('config_formulario').upsert({ id: 1, capa_url: null, atualizado_em: new Date().toISOString() })
+    if (!error) carregar()
+  }
+
+  return (
+    <div>
+      <div className="card p-4 mb-5 flex items-start gap-2.5 text-sm text-navy-600 dark:text-navy-300">
+        <ImageIcon size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
+        <p>
+          Essa imagem aparece no topo do formulário público de cadastro do candidato, como uma capa
+          (estilo Google Forms/Microsoft Forms). Use uma imagem larga (ex.: 1600×400) para melhor resultado.
+        </p>
+      </div>
+
+      <div className="card p-5 max-w-xl">
+        {loading ? (
+          <p className="text-sm text-navy-400">Carregando…</p>
+        ) : config?.capa_url ? (
+          <div>
+            <img src={config.capa_url} alt="Capa do formulário" className="w-full h-40 object-cover rounded-md border border-navy-100 dark:border-navy-800 mb-4" />
+            <div className="flex gap-3">
+              <button onClick={() => inputRef.current?.click()} disabled={enviando} className="btn-secondary">
+                {enviando ? 'Enviando…' : 'Trocar imagem'}
+              </button>
+              <button onClick={remover} className="btn-secondary text-clay-600 border-clay-500/30 hover:bg-clay-500/5">
+                Remover
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => inputRef.current?.click()} disabled={enviando} className="btn-primary">
+            {enviando ? 'Enviando…' : 'Enviar imagem de capa'}
+          </button>
+        )}
+        <input ref={inputRef} type="file" accept="image/*" onChange={enviarImagem} className="hidden" />
+        {erro && <p className="text-sm text-clay-600 mt-3">{erro}</p>}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const [aba, setAba] = useState('candidatos')
 
@@ -1113,6 +1203,9 @@ export default function Admin() {
           <TabButton active={aba === 'metas'} onClick={() => setAba('metas')}>
             Metas
           </TabButton>
+          <TabButton active={aba === 'formulario'} onClick={() => setAba('formulario')}>
+            Formulário
+          </TabButton>
         </div>
 
         {aba === 'candidatos' && <AbaCandidatos />}
@@ -1121,6 +1214,7 @@ export default function Admin() {
         {aba === 'comentarios' && <AbaComentarios />}
         {aba === 'log' && <AbaLog />}
         {aba === 'metas' && <AbaMetas />}
+        {aba === 'formulario' && <AbaFormulario />}
       </div>
     </Layout>
   )

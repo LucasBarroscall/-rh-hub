@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { useComentariosCompleto } from '../lib/useComentarios'
 import { useViaCep } from '../lib/useViaCep'
+import { useConfigFormulario } from '../lib/useConfigFormulario'
 import ComentarioCampo from '../components/ComentarioCampo'
 import CampoFonte from '../components/CampoFonte'
 import CheckboxGroup from '../components/CheckboxGroup'
@@ -88,6 +89,7 @@ function SimNao({ label, value, onChange, name, comentario }) {
 export default function CandidateForm() {
   const { opcoes, fontes } = useOpcoes()
   const { comentarios, titulos } = useComentariosCompleto()
+  const { config: configFormulario } = useConfigFormulario()
   const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [enderecoStatus, setEnderecoStatus] = useState('pendente') // pendente | auto | manual
@@ -291,6 +293,13 @@ export default function CandidateForm() {
   return (
     <div className="min-h-screen bg-navy-50 dark:bg-navy-950 py-6 px-3 sm:py-10 sm:px-4">
       <div className="max-w-xl mx-auto">
+        {configFormulario?.capa_url && (
+          <img
+            src={configFormulario.capa_url}
+            alt=""
+            className="w-full h-32 sm:h-44 object-cover rounded-lg mb-6 sm:mb-8"
+          />
+        )}
         <div className="flex flex-col items-center mb-6 sm:mb-8">
           <img
             src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
