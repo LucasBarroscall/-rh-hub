@@ -620,3 +620,16 @@ create policy "formulario_delete_analista"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'formulario' and public.is_analista(auth.uid()));
+
+-- =========================================================
+-- RODADA 9 — CRUD completo de metas (faltava delete) e
+-- posição do comentário de campo (antes/depois do item).
+-- =========================================================
+create policy "metas_delete_analista"
+  on public.metas for delete
+  to authenticated
+  using (public.is_analista(auth.uid()));
+
+alter table public.campo_comentarios add column if not exists posicao text not null default 'depois'
+  check (posicao in ('antes', 'depois'));
+comment on column public.campo_comentarios.posicao is 'Onde o comentário aparece em relação ao campo no formulário: antes ou depois.';

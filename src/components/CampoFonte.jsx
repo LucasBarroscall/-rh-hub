@@ -7,13 +7,18 @@ export default function CampoFonte({
   subValor,
   onSubChange,
   comentario,
+  posicaoComentario = 'depois',
   rotulo,
 }) {
   const selecionada = fontes.find((f) => f.valor === fonteValor)
+  const blocoComentario = comentario && (
+    <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
+  )
 
   return (
     <>
       <div>
+        {posicaoComentario === 'antes' && blocoComentario}
         <label className="field-label">{rotulo || 'Fonte'}</label>
         <select className="field-select" required value={fonteValor} onChange={(e) => onFonteChange(e.target.value)}>
           <option value="" disabled>
@@ -25,7 +30,7 @@ export default function CampoFonte({
             </option>
           ))}
         </select>
-        {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
+        {posicaoComentario !== 'antes' && blocoComentario}
       </div>
 
       {selecionada?.tipo_dependencia === 'texto' && (

@@ -1,13 +1,18 @@
 // Botão duplo Sim/Não que permite desmarcar: clicar na opção já
 // selecionada limpa a resposta (volta para null) — usado nas 3 telas
 // de entrevistador para todo campo booleano do funil.
-export default function BoolToggle({ label, value, onChange, disabled, semantic, comentario }) {
+export default function BoolToggle({ label, value, onChange, disabled, semantic, comentario, posicaoComentario = 'depois' }) {
   function clicar(v) {
     onChange(value === v ? null : v)
   }
 
+  const blocoComentario = comentario && (
+    <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
+  )
+
   return (
     <div>
+      {posicaoComentario === 'antes' && blocoComentario}
       <p className="field-label">{label}</p>
       <div className="flex gap-2">
         {[true, false].map((v) => {
@@ -45,7 +50,7 @@ export default function BoolToggle({ label, value, onChange, disabled, semantic,
           limpar resposta
         </button>
       )}
-      {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
+      {posicaoComentario !== 'antes' && blocoComentario}
     </div>
   )
 }

@@ -1,8 +1,11 @@
 // Grupo de checkboxes para campos que aceitam mais de uma opção
 // (ex.: horário de trabalho). O valor é guardado como texto único,
 // com as opções escolhidas separadas por " | ".
-export default function CheckboxGroup({ label, opcoes, valor, onChange, comentario }) {
+export default function CheckboxGroup({ label, opcoes, valor, onChange, comentario, posicaoComentario = 'depois' }) {
   const selecionadas = (valor || '').split(' | ').filter(Boolean)
+  const blocoComentario = comentario && (
+    <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
+  )
 
   function alternar(op) {
     const novaLista = selecionadas.includes(op)
@@ -15,6 +18,7 @@ export default function CheckboxGroup({ label, opcoes, valor, onChange, comentar
 
   return (
     <div>
+      {posicaoComentario === 'antes' && blocoComentario}
       <span className="field-label">{label}</span>
       <div className="flex flex-wrap gap-2">
         {opcoes.map((op) => {
@@ -35,7 +39,7 @@ export default function CheckboxGroup({ label, opcoes, valor, onChange, comentar
           )
         })}
       </div>
-      {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
+      {posicaoComentario !== 'antes' && blocoComentario}
     </div>
   )
 }

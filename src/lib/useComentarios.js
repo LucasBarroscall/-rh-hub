@@ -29,11 +29,12 @@ export function useComentarios() {
   return comentarios
 }
 
-// Hook completo (comentário + título customizado). Mantido separado do
-// export acima para não quebrar quem só usa useComentarios() por texto.
+// Hook completo (comentário + título customizado + posição). Mantido
+// separado do export acima para não quebrar quem só usa useComentarios().
 export function useComentariosCompleto() {
   const [comentarios, setComentarios] = useState({})
   const [titulos, setTitulos] = useState({})
+  const [posicoes, setPosicoes] = useState({})
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
@@ -46,12 +47,15 @@ export function useComentariosCompleto() {
         if (!error && data) {
           const mapaComentarios = {}
           const mapaTitulos = {}
+          const mapaPosicoes = {}
           data.forEach((c) => {
             if (c.comentario) mapaComentarios[c.campo] = c.comentario
             if (c.titulo) mapaTitulos[c.campo] = c.titulo
+            mapaPosicoes[c.campo] = c.posicao || 'depois'
           })
           setComentarios(mapaComentarios)
           setTitulos(mapaTitulos)
+          setPosicoes(mapaPosicoes)
         }
         setCarregando(false)
       })
@@ -60,5 +64,5 @@ export function useComentariosCompleto() {
     }
   }, [])
 
-  return { comentarios, titulos, carregando }
+  return { comentarios, titulos, posicoes, carregando }
 }

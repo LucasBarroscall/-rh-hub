@@ -74,7 +74,7 @@ function SimNao({ label, value, onChange, name }) {
 
 export default function AddCandidateModal({ onClose, onSaved }) {
   const { opcoes, fontes } = useOpcoes()
-  const { comentarios, titulos } = useComentariosCompleto()
+  const { comentarios, titulos, posicoes } = useComentariosCompleto()
   const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
   const [enderecoStatus, setEnderecoStatus] = useState('pendente')
@@ -233,13 +233,14 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               subValor={form.rede_social}
               onSubChange={(v) => set('rede_social', v)}
               comentario={comentarios.fonte}
+              posicaoComentario={posicoes.fonte}
               rotulo={titulos.fonte}
             />
           </section>
 
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h3>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.nome_completo || 'Nome completo'}</label>
               <input
                 name="nome_completo"
@@ -251,7 +252,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.data_nascimento || 'Data de nascimento'}</label>
                 <input
                   type="text"
@@ -264,7 +265,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   onChange={(e) => set('data_nascimento', maskDataBR(e.target.value))}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.sexo || 'Sexo'}</label>
                 <select name="sexo" required className="field-select" value={form.sexo} onChange={handleChange}>
                   <option value="" disabled>
@@ -279,7 +280,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.rg || 'RG'}</label>
                 <input
                   name="rg"
@@ -291,7 +292,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   placeholder="Somente números"
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.cpf || 'CPF'}</label>
                 <input
                   name="cpf"
@@ -304,7 +305,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.nome_mae || 'Nome da mãe'}</label>
               <input
                 name="nome_mae"
@@ -316,7 +317,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.telefone || 'Telefone'}</label>
                 <input
                   name="telefone"
@@ -328,7 +329,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   placeholder="(00) 0 0000-0000"
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.email || 'E-mail'}</label>
                 <input
                   type="email"
@@ -345,7 +346,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
 
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h3>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.cep || 'CEP'}</label>
               <div className="relative">
                 <input
@@ -364,7 +365,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               </div>
               {erroCep && <p className="text-xs text-clay-600 mt-1.5">{erroCep}</p>}
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.logradouro || 'Rua / Logradouro'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -377,7 +378,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.numero || 'Número'}</label>
                 <input
                   ref={numeroRef}
@@ -387,7 +388,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   onChange={(e) => set('numero', e.target.value)}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.complemento || 'Complemento'}</label>
                 <input
                   className="field-input"
@@ -398,7 +399,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.bairro || 'Bairro'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -409,7 +410,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                   onBlur={enderecoReadOnly ? undefined : normalizarAoSair('bairro')}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.cidade || 'Cidade'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -421,7 +422,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
                 />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.estado || 'Estado'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
@@ -447,7 +448,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               valor={form.disponibilidade_horario_treinamento}
               onChange={(v) => set('disponibilidade_horario_treinamento', v)}
             />
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.disponibilidade_jornada || 'Jornada de trabalho'}</label>
               <select
                 name="disponibilidade_jornada"
@@ -478,7 +479,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
               value={form.concorda_turno_treinamento}
               onChange={set}
             />
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.observacoes || 'Observações'}</label>
               <textarea name="observacoes" rows={3} className="field-input" value={form.observacoes} onChange={handleChange} />
             </div>

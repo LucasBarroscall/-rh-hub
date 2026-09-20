@@ -61,9 +61,13 @@ const CAMPOS_INICIAIS = {
   observacoes: '',
 }
 
-function SimNao({ label, value, onChange, name, comentario }) {
+function SimNao({ label, value, onChange, name, comentario, posicaoComentario = 'depois' }) {
+  const blocoComentario = comentario && (
+    <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
+  )
   return (
     <div>
+      {posicaoComentario === 'antes' && blocoComentario}
       <span className="field-label">{label}</span>
       <div className="flex gap-2">
         {['Sim', 'Não'].map((opt) => (
@@ -81,14 +85,14 @@ function SimNao({ label, value, onChange, name, comentario }) {
           </button>
         ))}
       </div>
-      {comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />}
+      {posicaoComentario !== 'antes' && blocoComentario}
     </div>
   )
 }
 
 export default function CandidateForm() {
   const { opcoes, fontes } = useOpcoes()
-  const { comentarios, titulos } = useComentariosCompleto()
+  const { comentarios, titulos, posicoes } = useComentariosCompleto()
   const { config: configFormulario } = useConfigFormulario()
   const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
@@ -329,13 +333,14 @@ export default function CandidateForm() {
               subValor={form.rede_social}
               onSubChange={(v) => set('rede_social', v)}
               comentario={comentarios.fonte}
+              posicaoComentario={posicoes.fonte}
               rotulo={titulos.fonte}
             />
           </section>
 
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h2>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.nome_completo || 'Nome completo'}</label>
               <input
                 name="nome_completo"
@@ -348,10 +353,10 @@ export default function CandidateForm() {
                   validarAoSair('nome_completo', form.nome_completo)
                 }}
               />
-              <ComentarioCampo texto={comentarios.nome_completo} />
+              <ComentarioCampo texto={comentarios.nome_completo} posicao={posicoes.nome_completo} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.data_nascimento || 'Nascimento'}</label>
                 <input
                   type="text"
@@ -365,7 +370,7 @@ export default function CandidateForm() {
                   onBlur={() => validarAoSair('data_nascimento', form.data_nascimento)}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.sexo || 'Sexo'}</label>
                 <select name="sexo" required className="field-select" value={form.sexo} onChange={handleChange}>
                   <option value="" disabled>
@@ -377,11 +382,11 @@ export default function CandidateForm() {
                     </option>
                   ))}
                 </select>
-                <ComentarioCampo texto={comentarios.sexo} />
+                <ComentarioCampo texto={comentarios.sexo} posicao={posicoes.sexo} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.rg || 'RG'}</label>
                 <input
                   name="rg"
@@ -393,9 +398,9 @@ export default function CandidateForm() {
                   onBlur={() => validarAoSair('rg', form.rg)}
                   placeholder="Somente números"
                 />
-                <ComentarioCampo texto={comentarios.rg} />
+                <ComentarioCampo texto={comentarios.rg} posicao={posicoes.rg} />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.cpf || 'CPF'}</label>
                 <input
                   name="cpf"
@@ -407,10 +412,10 @@ export default function CandidateForm() {
                   onBlur={() => validarAoSair('cpf', form.cpf)}
                   placeholder="000.000.000-00"
                 />
-                <ComentarioCampo texto={comentarios.cpf} />
+                <ComentarioCampo texto={comentarios.cpf} posicao={posicoes.cpf} />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.nome_mae || 'Nome da mãe'}</label>
               <input
                 name="nome_mae"
@@ -423,9 +428,9 @@ export default function CandidateForm() {
                   validarAoSair('nome_mae', form.nome_mae)
                 }}
               />
-              <ComentarioCampo texto={comentarios.nome_mae} />
+              <ComentarioCampo texto={comentarios.nome_mae} posicao={posicoes.nome_mae} />
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.telefone || 'Telefone'}</label>
               <input
                 name="telefone"
@@ -437,9 +442,9 @@ export default function CandidateForm() {
                 onBlur={() => validarAoSair('telefone', form.telefone)}
                 placeholder="(00) 0 0000-0000"
               />
-              <ComentarioCampo texto={comentarios.telefone} />
+              <ComentarioCampo texto={comentarios.telefone} posicao={posicoes.telefone} />
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.email || 'E-mail'}</label>
               <input
                 type="email"
@@ -451,13 +456,13 @@ export default function CandidateForm() {
                 onBlur={() => validarAoSair('email', form.email)}
                 placeholder="seuemail@exemplo.com"
               />
-              <ComentarioCampo texto={comentarios.email} />
+              <ComentarioCampo texto={comentarios.email} posicao={posicoes.email} />
             </div>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h2>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.cep || 'CEP'}</label>
               <div className="relative">
                 <input
@@ -480,7 +485,7 @@ export default function CandidateForm() {
               {erroCep && <p className="text-xs text-clay-600 mt-1.5">{erroCep}</p>}
             </div>
 
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.logradouro || 'Rua / Logradouro'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -493,7 +498,7 @@ export default function CandidateForm() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.numero || 'Número'}</label>
                 <input
                   ref={numeroRef}
@@ -503,7 +508,7 @@ export default function CandidateForm() {
                   onChange={(e) => set('numero', e.target.value)}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.complemento || 'Complemento'}</label>
                 <input
                   className="field-input"
@@ -514,7 +519,7 @@ export default function CandidateForm() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.bairro || 'Bairro'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -525,7 +530,7 @@ export default function CandidateForm() {
                   onBlur={enderecoReadOnly ? undefined : normalizarAoSair('bairro')}
                 />
               </div>
-              <div>
+              <div className="flex flex-col">
                 <label className="field-label">{titulos.cidade || 'Cidade'}</label>
                 <input
                   className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
@@ -537,7 +542,7 @@ export default function CandidateForm() {
                 />
               </div>
             </div>
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.estado || 'Estado'}</label>
               <input
                 className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
@@ -557,6 +562,7 @@ export default function CandidateForm() {
               valor={form.disponibilidade_horario_trabalho}
               onChange={(v) => set('disponibilidade_horario_trabalho', v)}
               comentario={comentarios.disponibilidade_horario_trabalho}
+            posicaoComentario={posicoes.disponibilidade_horario_trabalho}
             />
             <CheckboxGroup
               label={titulos.disponibilidade_horario_treinamento || 'Horário de treinamento (pode marcar mais de um)'}
@@ -564,8 +570,9 @@ export default function CandidateForm() {
               valor={form.disponibilidade_horario_treinamento}
               onChange={(v) => set('disponibilidade_horario_treinamento', v)}
               comentario={comentarios.disponibilidade_horario_treinamento}
+            posicaoComentario={posicoes.disponibilidade_horario_treinamento}
             />
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.disponibilidade_jornada || 'Jornada de trabalho'}</label>
               <select
                 name="disponibilidade_jornada"
@@ -583,7 +590,7 @@ export default function CandidateForm() {
                   </option>
                 ))}
               </select>
-              <ComentarioCampo texto={comentarios.disponibilidade_jornada} />
+              <ComentarioCampo texto={comentarios.disponibilidade_jornada} posicao={posicoes.disponibilidade_jornada} />
             </div>
           </section>
 
@@ -595,6 +602,7 @@ export default function CandidateForm() {
               value={form.possui_veiculo}
               onChange={set}
               comentario={comentarios.possui_veiculo}
+            posicaoComentario={posicoes.possui_veiculo}
             />
             <SimNao
               label={titulos.possui_ensino_superior || 'Possui ensino superior?'}
@@ -602,6 +610,7 @@ export default function CandidateForm() {
               value={form.possui_ensino_superior}
               onChange={set}
               comentario={comentarios.possui_ensino_superior}
+            posicaoComentario={posicoes.possui_ensino_superior}
             />
             <SimNao
               label={
@@ -612,8 +621,9 @@ export default function CandidateForm() {
               value={form.concorda_turno_treinamento}
               onChange={set}
               comentario={comentarios.concorda_turno_treinamento}
+            posicaoComentario={posicoes.concorda_turno_treinamento}
             />
-            <div>
+            <div className="flex flex-col">
               <label className="field-label">{titulos.observacoes || 'Observações'}</label>
               <textarea
                 name="observacoes"
@@ -622,7 +632,7 @@ export default function CandidateForm() {
                 value={form.observacoes}
                 onChange={handleChange}
               />
-              <ComentarioCampo texto={comentarios.observacoes} />
+              <ComentarioCampo texto={comentarios.observacoes} posicao={posicoes.observacoes} />
             </div>
           </section>
 

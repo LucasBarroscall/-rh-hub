@@ -754,10 +754,12 @@ function AbaComentarios() {
 
   const [comentarios, setComentarios] = useState({})
   const [titulos, setTitulos] = useState({})
+  const [posicoes, setPosicoes] = useState({})
   const [loading, setLoading] = useState(true)
   const [campoAtivo, setCampoAtivo] = useState(CAMPOS_COMENTAVEIS[0][0])
   const [rascunho, setRascunho] = useState('')
   const [rascunhoTitulo, setRascunhoTitulo] = useState('')
+  const [rascunhoPosicao, setRascunhoPosicao] = useState('depois')
   const [salvando, setSalvando] = useState(false)
 
   const carregar = useCallback(async () => {
@@ -766,12 +768,15 @@ function AbaComentarios() {
     if (!error) {
       const mapa = {}
       const mapaTitulos = {}
+      const mapaPosicoes = {}
       data.forEach((c) => {
         mapa[c.campo] = c.comentario
         if (c.titulo) mapaTitulos[c.campo] = c.titulo
+        mapaPosicoes[c.campo] = c.posicao || 'depois'
       })
       setComentarios(mapa)
       setTitulos(mapaTitulos)
+      setPosicoes(mapaPosicoes)
     }
     setLoading(false)
   }, [])
@@ -783,7 +788,8 @@ function AbaComentarios() {
   useEffect(() => {
     setRascunho(comentarios[campoAtivo] || '')
     setRascunhoTitulo(titulos[campoAtivo] || '')
-  }, [campoAtivo, comentarios, titulos])
+    setRascunhoPosicao(posicoes[campoAtivo] || 'depois')
+  }, [campoAtivo, comentarios, titulos, posicoes])
 
   async function salvar() {
     setSalvando(true)
@@ -795,6 +801,7 @@ function AbaComentarios() {
         campo: campoAtivo,
         comentario: vazio ? null : texto,
         titulo: tituloLimpo,
+        posicao: rascunhoPosicao,
         atualizado_em: new Date().toISOString(),
       })
     } else {
@@ -852,6 +859,28 @@ function AbaComentarios() {
               <div className="mb-1">
                 <label className="field-label">Comentário de apoio</label>
                 <EditorRico value={rascunho} onChange={setRascunho} placeholder="Sem comentário para este campo…" />
+              </div>
+              <div className="mb-1 mt-4">
+                <p className="field-label mb-2">Onde o comentário aparece</p>
+                <div className="flex gap-2">
+                  {[
+                    ['antes', 'Antes do campo'],
+                    ['depois', 'Depois do campo'],
+                  ].map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setRascunhoPosicao(v)}
+                      className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                        rascunhoPosicao === v
+                          ? 'border-navy-700 bg-navy-700 text-white'
+                          : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex justify-end mt-4">
                 <button onClick={salvar} disabled={salvando} className="btn-primary">
@@ -996,6 +1025,7 @@ const MESES_LABEL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
 function AbaMetas() {
   const [metas, setMetas] = useState([])
   const [loading, setLoading] = useState(true)
+  const [editandoId, setEditandoId] = useState(null)
   const [novoMes, setNovoMes] = useState(new Date().toISOString().slice(0, 7))
   const [novaMeta, setNovaMeta] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -1012,6 +1042,25 @@ function AbaMetas() {
     carregar()
   }, [carregar])
 
+  function rotuloMes(mesISO) {
+    const [ano, mes] = mesISO.split('-')
+    return `${MESES_LABEL[Number(mes) - 1]} de ${ano}`
+  }
+
+  function iniciarEdicao(m) {
+    setEditandoId(m.id)
+    setNovoMes(m.mes.slice(0, 7))
+    setNovaMeta(String(m.meta_contratacoes))
+    setErro('')
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null)
+    setNovoMes(new Date().toISOString().slice(0, 7))
+    setNovaMeta('')
+    setErro('')
+  }
+
   async function salvar(e) {
     e.preventDefault()
     if (!novaMeta || Number(novaMeta) <= 0) return
@@ -1025,13 +1074,19 @@ function AbaMetas() {
       setErro(error.message)
       return
     }
-    setNovaMeta('')
+    cancelarEdicao()
     carregar()
   }
 
-  function rotuloMes(mesISO) {
-    const [ano, mes] = mesISO.split('-')
-    return `${MESES_LABEL[Number(mes) - 1]} de ${ano}`
+  async function excluir(m) {
+    if (!confirm(`Excluir a meta de ${rotuloMes(m.mes)}?`)) return
+    const { error } = await supabase.from('metas').delete().eq('id', m.id)
+    if (error) {
+      setErro(error.message)
+      return
+    }
+    if (editandoId === m.id) cancelarEdicao()
+    carregar()
   }
 
   return (
@@ -1044,7 +1099,13 @@ function AbaMetas() {
       <form onSubmit={salvar} className="flex flex-wrap items-end gap-3 mb-6">
         <div>
           <label className="field-label">Mês</label>
-          <input type="month" className="field-input" value={novoMes} onChange={(e) => setNovoMes(e.target.value)} />
+          <input
+            type="month"
+            className="field-input"
+            value={novoMes}
+            onChange={(e) => setNovoMes(e.target.value)}
+            disabled={editandoId !== null}
+          />
         </div>
         <div>
           <label className="field-label">Meta de contratações</label>
@@ -1057,8 +1118,13 @@ function AbaMetas() {
           />
         </div>
         <button type="submit" disabled={salvando} className="btn-primary">
-          {salvando ? 'Salvando…' : 'Salvar meta'}
+          {salvando ? 'Salvando…' : editandoId ? 'Salvar alteração' : 'Salvar meta'}
         </button>
+        {editandoId && (
+          <button type="button" onClick={cancelarEdicao} className="btn-secondary">
+            Cancelar
+          </button>
+        )}
       </form>
 
       {erro && <p className="text-sm text-clay-600 mb-4">{erro}</p>}
@@ -1070,7 +1136,15 @@ function AbaMetas() {
           metas.map((m) => (
             <div key={m.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="text-navy-800 dark:text-navy-100">{rotuloMes(m.mes)}</span>
-              <span className="text-navy-500 dark:text-navy-400">{m.meta_contratacoes} contratações</span>
+              <div className="flex items-center gap-3">
+                <span className="text-navy-500 dark:text-navy-400">{m.meta_contratacoes} contratações</span>
+                <button onClick={() => iniciarEdicao(m)} className="text-navy-400 hover:text-navy-700 dark:hover:text-white" title="Editar">
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => excluir(m)} className="text-navy-400 hover:text-clay-600" title="Excluir">
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           ))}
       </div>
