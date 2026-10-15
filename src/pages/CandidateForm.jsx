@@ -8,6 +8,7 @@ import { useConfigFormulario } from '../lib/useConfigFormulario'
 import ComentarioCampo from '../components/ComentarioCampo'
 import CampoFonte from '../components/CampoFonte'
 import CheckboxGroup from '../components/CheckboxGroup'
+import SeletorTurnos from '../components/SeletorTurnos'
 import {
   maskRG,
   maskCPF,
@@ -227,8 +228,8 @@ export default function CandidateForm() {
       setError('Preencha o número do endereço.')
       return
     }
-    if (!form.disponibilidade_horario_trabalho) {
-      setError('Selecione ao menos uma opção de horário de trabalho.')
+    if (!form.disponibilidade_horario_trabalho || form.disponibilidade_horario_trabalho === 'Nenhum horário selecionado') {
+      setError('Selecione ao menos um turno de disponibilidade de trabalho.')
       return
     }
     if (!form.disponibilidade_horario_treinamento) {
@@ -238,9 +239,6 @@ export default function CandidateForm() {
 
     setSubmitting(true)
     const tempoPreenchimentoSegundos = Math.round((Date.now() - inicioRef.current) / 1000)
-    const enderecoComposto = `${normalizarTexto(form.logradouro)}, ${form.numero.trim()}${
-      form.complemento.trim() ? ' - ' + normalizarTexto(form.complemento) : ''
-    }`
 
     const payload = {
       ...form,
@@ -251,12 +249,7 @@ export default function CandidateForm() {
       logradouro: normalizarTexto(form.logradouro),
       bairro: normalizarTexto(form.bairro),
       cidade: normalizarTexto(form.cidade),
-      endereco: enderecoComposto,
       data_nascimento: dataBRParaISO(form.data_nascimento),
-      disponibilidade_horario_trabalho: normalizarDisponibilidade(
-        form.disponibilidade_horario_trabalho.split(' | ').filter(Boolean),
-        opcoes.disponibilidade_horario_trabalho || [],
-      ),
       disponibilidade_horario_treinamento: normalizarDisponibilidade(
         form.disponibilidade_horario_treinamento.split(' | ').filter(Boolean),
         opcoes.disponibilidade_horario_treinamento || [],
@@ -556,13 +549,11 @@ export default function CandidateForm() {
 
           <section className="space-y-4">
             <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h2>
-            <CheckboxGroup
-              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho (pode marcar mais de um)'}
-              opcoes={opcoes.disponibilidade_horario_trabalho || []}
-              valor={form.disponibilidade_horario_trabalho}
+            <SeletorTurnos
+              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho'}
               onChange={(v) => set('disponibilidade_horario_trabalho', v)}
               comentario={comentarios.disponibilidade_horario_trabalho}
-            posicaoComentario={posicoes.disponibilidade_horario_trabalho}
+              posicaoComentario={posicoes.disponibilidade_horario_trabalho}
             />
             <CheckboxGroup
               label={titulos.disponibilidade_horario_treinamento || 'Horário de treinamento (pode marcar mais de um)'}

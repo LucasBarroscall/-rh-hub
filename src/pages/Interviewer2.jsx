@@ -337,7 +337,7 @@ export default function Interviewer2() {
                     />
                   </div>
 
-                  <button type="submit" disabled={salvando} className="btn-primary w-full">
+                  <button type="submit" disabled={salvando || wpm === '' || precisao === '' || wpm === null || precisao === null} className="btn-primary w-full">
                     {salvando ? 'Salvando…' : 'Salvar resultado do teste'}
                   </button>
                 </form>

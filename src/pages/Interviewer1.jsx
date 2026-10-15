@@ -7,7 +7,7 @@ import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
 import { useDuplicidade } from '../lib/useDuplicidade'
 import { useComentarios } from '../lib/useComentarios'
-import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa } from '../lib/candidato'
+import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa, formatarDisponibilidadeExibicao } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
 import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle, Filter, Pencil } from 'lucide-react'
 
@@ -35,7 +35,12 @@ export default function Interviewer1() {
   const carregar = useCallback(async () => {
     setLoading(true)
     let query = supabase.from('candidatos').select('*').order('created_at', { ascending: true })
-    if (!mostrarTodos) query = query.is('compareceu_entrevista', null)
+    // Fica na fila enquanto não foi marcado comparecimento, OU compareceu (Sim)
+    // mas ainda sem decisão de aprovado. Sai só com "Não compareceu" ou depois
+    // de aprovado/reprovado.
+    if (!mostrarTodos) {
+      query = query.or('compareceu_entrevista.is.null,and(compareceu_entrevista.eq.true,aprovado_entrevista.is.null)')
+    }
     const { data, error } = await query
     if (!error) {
       setFila(data)
@@ -233,8 +238,10 @@ export default function Interviewer1() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-navy-400">Disponibilidade de trabalho: </span>
-                  <span className="text-navy-700 dark:text-navy-200">{selecionado.disponibilidade_horario_trabalho}</span>
+                  <span className="text-navy-400 block">Disponibilidade de trabalho:</span>
+                  <span className="text-navy-700 dark:text-navy-200">
+                    {formatarDisponibilidadeExibicao(selecionado.disponibilidade_horario_trabalho)}
+                  </span>
                 </div>
                 <div>
                   <span className="text-navy-400">Disponibilidade de treinamento: </span>

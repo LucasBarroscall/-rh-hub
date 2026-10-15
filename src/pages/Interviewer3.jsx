@@ -279,7 +279,8 @@ export default function Interviewer3() {
                 <div>
                   <span className="text-navy-400">Endereço: </span>
                   <span className="text-navy-700 dark:text-navy-200">
-                    {selecionado.endereco}, {selecionado.bairro}, {selecionado.cidade}
+                    {selecionado.logradouro}, {selecionado.numero}
+                    {selecionado.complemento ? ` - ${selecionado.complemento}` : ''}, {selecionado.bairro}, {selecionado.cidade}
                   </span>
                 </div>
               </dl>

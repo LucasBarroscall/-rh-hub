@@ -54,7 +54,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
     ['cpf', 'CPF'],
     ['data_nascimento', 'Data de nascimento', 'date'],
     ['nome_mae', 'Nome da mãe'],
-    ['endereco', 'Endereço (composto)'],
+    ['logradouro', 'Rua / Logradouro'],
     ['numero', 'Número'],
     ['complemento', 'Complemento'],
     ['bairro', 'Bairro'],

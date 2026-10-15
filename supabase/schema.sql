@@ -633,3 +633,14 @@ create policy "metas_delete_analista"
 alter table public.campo_comentarios add column if not exists posicao text not null default 'depois'
   check (posicao in ('antes', 'depois'));
 comment on column public.campo_comentarios.posicao is 'Onde o comentário aparece em relação ao campo no formulário: antes ou depois.';
+
+
+-- =========================================================
+-- RODADA 10 — unifica "endereco" em "logradouro" (não faz
+-- mais sentido ter os dois campos).
+-- =========================================================
+update public.candidatos
+set logradouro = endereco
+where logradouro is null and endereco is not null;
+
+alter table public.candidatos drop column if exists endereco;

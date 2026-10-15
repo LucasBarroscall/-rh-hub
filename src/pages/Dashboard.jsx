@@ -1243,7 +1243,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="mt-4">
-                <MapaDeCalor contagemPorLocal={contagemMapa} nivel={nivelMapa} />
+                <MapaDeCalor contagemPorLocal={contagemMapa} nivel={nivelMapa} onSelecionar={(v) => alternarFiltro(nivelMapa, v)} />
               </div>
             </div>
           </>

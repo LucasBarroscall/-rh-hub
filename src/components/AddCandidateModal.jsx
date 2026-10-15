@@ -7,6 +7,7 @@ import { useViaCep } from '../lib/useViaCep'
 import ComentarioCampo from './ComentarioCampo'
 import CampoFonte from './CampoFonte'
 import CheckboxGroup from './CheckboxGroup'
+import SeletorTurnos from './SeletorTurnos'
 import {
   maskRG,
   maskCPF,
@@ -164,8 +165,8 @@ export default function AddCandidateModal({ onClose, onSaved }) {
       setError('Preencha o número do endereço.')
       return
     }
-    if (!form.disponibilidade_horario_trabalho) {
-      setError('Selecione ao menos uma opção de horário de trabalho.')
+    if (!form.disponibilidade_horario_trabalho || form.disponibilidade_horario_trabalho === 'Nenhum horário selecionado') {
+      setError('Selecione ao menos um turno de disponibilidade de trabalho.')
       return
     }
     if (!form.disponibilidade_horario_treinamento) {
@@ -174,9 +175,6 @@ export default function AddCandidateModal({ onClose, onSaved }) {
     }
 
     setSubmitting(true)
-    const enderecoComposto = `${normalizarTexto(form.logradouro)}, ${form.numero.trim()}${
-      form.complemento.trim() ? ' - ' + normalizarTexto(form.complemento) : ''
-    }`
     const payload = {
       ...form,
       nome_completo: normalizarTexto(form.nome_completo),
@@ -186,12 +184,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
       logradouro: normalizarTexto(form.logradouro),
       bairro: normalizarTexto(form.bairro),
       cidade: normalizarTexto(form.cidade),
-      endereco: enderecoComposto,
       data_nascimento: dataBRParaISO(form.data_nascimento),
-      disponibilidade_horario_trabalho: normalizarDisponibilidade(
-        form.disponibilidade_horario_trabalho.split(' | ').filter(Boolean),
-        opcoes.disponibilidade_horario_trabalho || [],
-      ),
       disponibilidade_horario_treinamento: normalizarDisponibilidade(
         form.disponibilidade_horario_treinamento.split(' | ').filter(Boolean),
         opcoes.disponibilidade_horario_treinamento || [],
@@ -436,10 +429,8 @@ export default function AddCandidateModal({ onClose, onSaved }) {
 
           <section className="space-y-4">
             <h3 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h3>
-            <CheckboxGroup
-              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho (pode marcar mais de um)'}
-              opcoes={opcoes.disponibilidade_horario_trabalho || []}
-              valor={form.disponibilidade_horario_trabalho}
+            <SeletorTurnos
+              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho'}
               onChange={(v) => set('disponibilidade_horario_trabalho', v)}
             />
             <CheckboxGroup

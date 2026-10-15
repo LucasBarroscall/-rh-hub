@@ -10,7 +10,7 @@ import { ShieldCheck, Search, Trash2, Save, Users2, X, UserPlus, ListChecks, Mes
 import { normalizarTexto } from '../lib/formatters'
 
 // Colunas geradas pelo banco — nunca podem ser enviadas em insert/update.
-const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at', 'created_at']
+const COLUNAS_GERADAS = ['idade', 'aprovado_teste', 'updated_at']
 
 const ROLES = [
   { id: 'entrevistador1', label: 'Entrevistador 1' },
@@ -103,8 +103,8 @@ function AbaCandidatos() {
 
   function baixarModelo() {
     const linhaExemplo = {
+      created_at: '',
       fonte: 'Indicação',
-      rede_social: '',
       nome_indicador: 'MARIA SILVA',
       nome_completo: 'JOAO DA SILVA SANTOS',
       telefone: '(11) 9 8888-7777',
@@ -120,15 +120,45 @@ function AbaCandidatos() {
       cidade: 'ARACAJU',
       estado: 'SE',
       cep: '49000000',
-      endereco: 'RUA DAS FLORES, 123 - APTO 45',
       email: 'joao.silva@exemplo.com',
-      disponibilidade_horario_trabalho: 'Manhã | Tarde',
+      disponibilidade_horario_trabalho: 'Das 06:00 às 18:00 (Manhã e Tarde)',
       disponibilidade_horario_treinamento: 'Manhã/Tarde',
       disponibilidade_jornada: 'Período integral',
       possui_veiculo: 'true',
       concorda_turno_treinamento: 'true',
       possui_ensino_superior: 'false',
       observacoes: '',
+      data_entrevista: '',
+      compareceu_entrevista: '',
+      aprovado_entrevista: '',
+      entrevista_em: '',
+      teste_realizado: '',
+      wpm: '',
+      precisao: '',
+      alerta_comportamental: '',
+      teste_em: '',
+      compliance: '',
+      data_exame: '',
+      compareceu_exame: '',
+      aprovado_exame: '',
+      enviou_documentacao: '',
+      aprovado_documentacao: '',
+      compareceu_onboarding: '',
+      compareceu_treinamento: '',
+      decisao_final: '',
+      contatado_whatsapp: '',
+      decisao_em: '',
+      compareceu_alo: '',
+      tempo_preenchimento_segundos: '',
+      rede_social: '',
+      documentacao_solicitada: '',
+      data_documentacao_solicitada: '',
+      data_envio_documentacao: '',
+      data_onboarding: '',
+      data_treinamento: '',
+      data_contato_whatsapp: '',
+      data_alo: '',
+      comentario_entrevistador1: '',
     }
     const csv = Papa.unparse([linhaExemplo])
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -157,7 +187,7 @@ function AbaCandidatos() {
         const linhas = resultado.data.map((linha) => {
           const copia = { ...linha }
           COLUNAS_GERADAS.forEach((col) => delete copia[col])
-          if ('id' in copia && !copia.id) delete copia.id
+          delete copia.id // o banco sempre gera um UUID novo na importação
           // Campos vazios viram null em vez de string vazia; texto é
           // normalizado pro mesmo padrão usado no cadastro pelo site.
           Object.keys(copia).forEach((k) => {
@@ -726,7 +756,7 @@ function AbaComentarios() {
     ['nome_mae', 'Nome da mãe'],
     ['telefone', 'Telefone'],
     ['email', 'E-mail'],
-    ['endereco', 'Endereço'],
+    ['logradouro', 'Rua / Logradouro'],
     ['bairro', 'Bairro'],
     ['cidade', 'Cidade'],
     ['cep', 'CEP'],

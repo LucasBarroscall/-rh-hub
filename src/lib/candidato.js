@@ -66,3 +66,13 @@ export function formatarDataHora(d) {
   if (!d) return '—'
   return new Date(d).toLocaleString('pt-BR')
 }
+
+// Exibe a disponibilidade de trabalho de forma limpa, inclusive para
+// cadastros antigos salvos no formato "Manhã | Tarde | Noite | Madrugada".
+export function formatarDisponibilidadeExibicao(valor) {
+  if (!valor) return '—'
+  if (valor === 'Total') return 'Disponibilidade Total'
+  const partes = valor.split(' | ').filter(Boolean)
+  if (partes.length >= 4) return 'Disponibilidade Total'
+  return valor
+}
