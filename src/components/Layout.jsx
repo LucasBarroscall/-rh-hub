@@ -4,6 +4,7 @@ import {
   UserCheck,
   Keyboard,
   ClipboardCheck,
+  Database,
   ShieldCheck,
   LogOut,
   Sun,
@@ -19,6 +20,7 @@ const NAV_BY_ROLE = {
     { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
     { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
     { to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck },
+    { to: '/banco-de-talentos', label: 'Banco de talentos', icon: Database },
     { to: '/admin', label: 'Administração', icon: ShieldCheck },
   ],
   entrevistador1: [
@@ -35,6 +37,7 @@ const NAV_BY_ROLE = {
     { to: '/entrevistador1', label: 'Etapa 1 · Entrevista', icon: UserCheck },
     { to: '/entrevistador2', label: 'Etapa 2 · Teste', icon: Keyboard },
     { to: '/entrevistador3', label: 'Etapa 3 · Decisão', icon: ClipboardCheck },
+    { to: '/banco-de-talentos', label: 'Banco de talentos', icon: Database },
   ],
 }
 

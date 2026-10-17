@@ -38,7 +38,7 @@ export function etapa2Completa(c) {
 }
 
 export function etapa3Completa(c) {
-  return c.decisao_final === 'Aprovado' || c.decisao_final === 'Reprovado'
+  return c.decisao_final === 'Reprovado' || c.compareceu_alo === true
 }
 
 export function faixaEtariaDe(idade) {

@@ -110,9 +110,7 @@ export default function MapaDeCalor({ contagemPorLocal, nivel, onSelecionar }) {
   const nomeFiltro = selecionado ? selecionado.nome.split(',')[0].trim() : null
   const pctProgresso = progresso.total ? Math.round((progresso.feito / progresso.total) * 100) : 0
   const escuro = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  const tiles = escuro
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+  const tiles = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 
   function escolher(p) {
     setSelecionadoNome(p.nome)
@@ -138,7 +136,7 @@ export default function MapaDeCalor({ contagemPorLocal, nivel, onSelecionar }) {
       <div className="grid lg:grid-cols-[1fr_300px] gap-4">
         <div className="relative h-[440px] rounded-md overflow-hidden border border-navy-100 dark:border-navy-800">
           <MapContainer center={[-14.235, -51.9253]} zoom={4} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
-            <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url={tiles} />
+            <TileLayer attribution="&copy; OpenStreetMap" url={tiles} className="tiles-mapa" />
             {pontos.map((p) => {
               const t = maxQuantidade ? p.quantidade / maxQuantidade : 0
               const pct = totalGeral ? Math.round((p.quantidade / totalGeral) * 100) : 0

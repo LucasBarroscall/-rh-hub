@@ -6,6 +6,7 @@ import Interviewer1 from './pages/Interviewer1'
 import Interviewer2 from './pages/Interviewer2'
 import Interviewer3 from './pages/Interviewer3'
 import Admin from './pages/Admin'
+import BancoTalentos from './pages/BancoTalentos'
 import ProtectedRoute from './components/ProtectedRoute'
 
 export default function App() {
@@ -52,6 +53,14 @@ export default function App() {
         element={
           <ProtectedRoute allow={['analista']}>
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/banco-de-talentos"
+        element={
+          <ProtectedRoute allow={['entrevistador3', 'analista']}>
+            <BancoTalentos />
           </ProtectedRoute>
         }
       />

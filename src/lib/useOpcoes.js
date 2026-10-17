@@ -4,6 +4,8 @@ import { supabase } from './supabaseClient'
 // Campos "simples" (uma lista plana de valores).
 export const CAMPOS_SIMPLES = [
   'sexo',
+  'produto',
+  'documento',
   'disponibilidade_horario_trabalho',
   'disponibilidade_horario_treinamento',
   'disponibilidade_jornada',

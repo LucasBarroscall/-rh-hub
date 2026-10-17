@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import { buscarTodos } from '../lib/buscarTodos'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
 import ConfirmarSenhaModal from '../components/ConfirmarSenhaModal'
@@ -9,11 +10,13 @@ import { useComentarios } from '../lib/useComentarios'
 import ComentarioCampo from '../components/ComentarioCampo'
 import { formatarData, etapa2Completa } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
+import { useRegrasTeste, avaliarTeste } from '../lib/regrasTeste'
 import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2, Filter, MessageSquare, Pencil, Eye, EyeOff } from 'lucide-react'
 
 const FILTROS_ETAPA = [
   { id: '', label: 'Todos' },
-  { id: 'Entrevista', label: 'Aguardando teste' },
+  { id: 'Entrevista', label: 'Aprovado na entrevista (aguardando teste)' },
+  { id: 'Reprovado na entrevista', label: 'Reprovado na entrevista (faz o teste mesmo assim)' },
   { id: 'Teste de Digitação', label: 'Testado (aguardando próxima etapa)' },
   { id: 'Reprovado no teste', label: 'Reprovado no teste' },
 ]
@@ -35,16 +38,17 @@ export default function Interviewer2() {
   const [alerta, setAlerta] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
+  const { regras } = useRegrasTeste()
 
   const carregar = useCallback(async () => {
     setLoading(true)
     let query = supabase
       .from('candidatos')
       .select('*')
-      .eq('aprovado_entrevista', true)
+      .eq('compareceu_entrevista', true)
       .order('entrevista_em', { ascending: true })
     if (!mostrarTodos) query = query.is('teste_realizado', null)
-    const { data, error } = await query
+    const { data, error } = await buscarTodos(query.order('id'))
     if (!error) {
       setFila(data)
       setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
@@ -83,32 +87,37 @@ export default function Interviewer2() {
   }
 
   function marcarNaoRealizado() {
-    atualizar({ teste_realizado: false, wpm: null, precisao: null })
+    atualizar({ teste_realizado: false, wpm: null, precisao: null, aprovado_teste: null, resultado_teste: null })
   }
 
   function desfazerNaoRealizado() {
-    atualizar({ teste_realizado: null, wpm: null, precisao: null }, { avancar: false })
+    atualizar({ teste_realizado: null, wpm: null, precisao: null, aprovado_teste: null, resultado_teste: null }, { avancar: false })
   }
 
   function desfazerResultado() {
     atualizar(
-      { teste_realizado: null, wpm: null, precisao: null, alerta_comportamental: null },
+      { teste_realizado: null, wpm: null, precisao: null, aprovado_teste: null, resultado_teste: null, alerta_comportamental: null },
       { avancar: false },
     )
   }
 
   async function salvarResultado(e) {
     e.preventDefault()
+    const wpmN = Math.min(256, Math.max(0, Math.round(Number(wpm))))
+    const precN = Math.min(100, Math.max(0, Math.round(Number(precisao))))
+    const aval = avaliarTeste(wpmN, precN, regras)
     atualizar({
       teste_realizado: true,
-      wpm: wpm === '' ? null : Math.round(Number(wpm)),
-      precisao: precisao === '' ? null : Math.round(Number(precisao)),
+      wpm: wpmN,
+      precisao: precN,
+      aprovado_teste: aval ? aval.aprovado : null,
+      resultado_teste: aval ? aval.resultado : null,
       alerta_comportamental: alerta || null,
     })
   }
 
-  const aprovadoPreview =
-    wpm !== '' && precisao !== '' ? Number(wpm) >= 20 && Number(precisao) >= 95 : null
+  const previewAval = wpm !== '' && precisao !== '' ? avaliarTeste(Number(wpm), Number(precisao), regras) : null
+  const aprovadoPreview = previewAval ? previewAval.aprovado : null
 
   const filaFiltrada = useMemo(() => {
     let f = fila
@@ -133,7 +142,7 @@ export default function Interviewer2() {
             <h1 className="text-2xl font-semibold text-navy-900 dark:text-white">Etapa 2 · Teste de digitação</h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-navy-500 dark:text-navy-400 text-sm">
-                {resultadoVisivel ? 'Aprovação automática: WPM ≥ 20 e Precisão ≥ 95%.' : 'Resultado oculto por padrão.'}
+                {resultadoVisivel ? 'Resultado calculado pela regra de pontuação definida pelo analista.' : 'Resultado oculto por padrão.'}
               </p>
               <button
                 onClick={() => (resultadoVisivel ? setResultadoVisivel(false) : setMostrarSenhaModal(true))}
@@ -208,7 +217,7 @@ export default function Interviewer2() {
                       {selecionado.nome_completo}
                       {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
                     </h2>
-                    <p className="text-sm text-navy-500 dark:text-navy-400">Aprovado(a) na entrevista</p>
+                    <p className="text-sm text-navy-500 dark:text-navy-400">{selecionado.aprovado_entrevista === false ? 'Reprovado(a) na entrevista — faz o teste normalmente' : selecionado.aprovado_entrevista === true ? 'Aprovado(a) na entrevista' : 'Entrevista realizada'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
@@ -256,7 +265,7 @@ export default function Interviewer2() {
                     {resultadoVisivel ? (
                       <>
                         Resultado salvo: WPM {selecionado.wpm}, Precisão {selecionado.precisao}% —{' '}
-                        {selecionado.aprovado_teste ? 'aprovado' : 'reprovado'}
+                        {selecionado.resultado_teste || (selecionado.aprovado_teste ? 'aprovado' : 'reprovado')}
                       </>
                     ) : (
                       <span className="flex items-center gap-1.5">
@@ -290,7 +299,7 @@ export default function Interviewer2() {
                       <input
                         type="number"
                         step="1"
-                        min="0"
+                        min="0" max="256"
                         className="field-input"
                         value={wpm}
                         onChange={(e) => setWpm(e.target.value)}
@@ -319,7 +328,7 @@ export default function Interviewer2() {
                       }`}
                     >
                       {aprovadoPreview ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                      {aprovadoPreview ? 'Será aprovado no teste' : 'Será reprovado no teste'}
+                      {previewAval ? `Resultado: ${previewAval.resultado} (${previewAval.aprovado ? 'aprovado' : 'reprovado'})` : ''}
                     </div>
                   )}
 

@@ -121,3 +121,8 @@
   }
 }
 
+
+/* Mapa: no modo escuro inverte as cores do mapa base (OpenStreetMap) */
+.dark .tiles-mapa {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}

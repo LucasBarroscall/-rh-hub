@@ -1,272 +1,62 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
-import { useComentariosCompleto } from '../lib/useComentarios'
-import { useViaCep } from '../lib/useViaCep'
 import { useConfigFormulario } from '../lib/useConfigFormulario'
-import ComentarioCampo from '../components/ComentarioCampo'
-import CampoFonte from '../components/CampoFonte'
-import CheckboxGroup from '../components/CheckboxGroup'
-import SeletorTurnos from '../components/SeletorTurnos'
-import {
-  maskRG,
-  maskCPF,
-  maskTelefone,
-  maskCEP,
-  maskDataBR,
-  dataBRParaISO,
-  validarCPF,
-  validarDataBR,
-  normalizarTexto,
-  normalizarDisponibilidade,
-} from '../lib/formatters'
+import { useCamposFormulario } from '../lib/useCamposFormulario'
+import { useCepEndereco } from '../lib/useCepEndereco'
+import { CAMPOS_INICIAIS, validarCadastro, montarPayload } from '../lib/cadastro'
+import CamposCadastro from '../components/CamposCadastro'
 import Toast from '../components/Toast'
 
-const VALIDACOES = {
-  nome_completo: { teste: (v) => v.trim().length >= 3, mensagem: 'Digite o nome completo do candidato.' },
-  nome_mae: { teste: (v) => v.trim().length >= 3, mensagem: 'Digite o nome completo da mãe.' },
-  rg: { teste: (v) => v.trim().length >= 4, mensagem: 'RG inválido — confira os números digitados.' },
-  cpf: { teste: (v) => validarCPF(v), mensagem: 'CPF inválido — confira os números digitados.' },
-  telefone: { teste: (v) => v.replace(/\D/g, '').length === 11, mensagem: 'Telefone incompleto — informe DDD + número.' },
-  email: { teste: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), mensagem: 'E-mail inválido.' },
-  data_nascimento: { teste: (v) => validarDataBR(v), mensagem: 'Data de nascimento inválida — use dd/mm/aaaa.' },
-  cep: { teste: (v) => v.replace(/\D/g, '').length === 8, mensagem: 'CEP incompleto — informe os 8 números.' },
-}
-
-const CAMPOS_INICIAIS = {
-  fonte: '',
-  rede_social: '',
-  nome_indicador: '',
-  nome_completo: '',
-  telefone: '',
-  rg: '',
-  cpf: '',
-  data_nascimento: '', // dd/mm/aaaa em tela
-  sexo: '',
-  nome_mae: '',
-  cep: '',
-  logradouro: '',
-  numero: '',
-  complemento: '',
-  bairro: '',
-  cidade: '',
-  estado: '',
-  email: '',
-  disponibilidade_horario_trabalho: '',
-  disponibilidade_horario_treinamento: '',
-  disponibilidade_jornada: '',
-  possui_veiculo: '',
-  concorda_turno_treinamento: '',
-  possui_ensino_superior: '',
-  observacoes: '',
-}
-
-function SimNao({ label, value, onChange, name, comentario, posicaoComentario = 'depois' }) {
-  const blocoComentario = comentario && (
-    <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
-  )
-  return (
-    <div>
-      {posicaoComentario === 'antes' && blocoComentario}
-      <span className="field-label">{label}</span>
-      <div className="flex gap-2">
-        {['Sim', 'Não'].map((opt) => (
-          <button
-            type="button"
-            key={opt}
-            onClick={() => onChange(name, opt === 'Sim')}
-            className={`flex-1 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
-              value === (opt === 'Sim')
-                ? 'border-navy-700 bg-navy-700 text-white'
-                : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
-            }`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-      {posicaoComentario !== 'antes' && blocoComentario}
-    </div>
-  )
-}
+const LOGO = 'https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png'
 
 export default function CandidateForm() {
   const { opcoes, fontes } = useOpcoes()
-  const { comentarios, titulos, posicoes } = useComentariosCompleto()
-  const { config: configFormulario } = useConfigFormulario()
-  const { consultar, carregando: carregandoCep, erro: erroCep, limparErro } = useViaCep()
+  const { customizados, ocultos } = useCamposFormulario()
+  const { config } = useConfigFormulario()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
-  const [enderecoStatus, setEnderecoStatus] = useState('pendente') // pendente | auto | manual
+  const cep = useCepEndereco(setForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
-  const [camposInvalidos, setCamposInvalidos] = useState(new Set())
   const [toast, setToast] = useState('')
   const inicioRef = useRef(Date.now())
-  const numeroRef = useRef(null)
-  const consultandoRef = useRef(false)
 
   useEffect(() => {
     inicioRef.current = Date.now()
   }, [])
 
-  function set(name, value) {
-    setForm((f) => ({ ...f, [name]: value }))
-  }
-
-  function normalizarAoSair(campo) {
-    return () => set(campo, normalizarTexto(form[campo]))
-  }
-
-  function validarAoSair(campo, valor) {
-    const regra = VALIDACOES[campo]
-    if (!regra) return
-    const valorFinal = valor ?? form[campo]
-    if (!valorFinal) return // campo vazio ainda: deixa o "required" nativo cuidar disso
-    const ok = regra.teste(valorFinal)
-    setCamposInvalidos((s) => {
-      const novo = new Set(s)
-      if (ok) novo.delete(campo)
-      else novo.add(campo)
-      return novo
-    })
-    if (!ok) setToast(regra.mensagem)
-  }
-
-  function classeErro(campo) {
-    return camposInvalidos.has(campo) ? 'border-clay-500 ring-2 ring-clay-500/20' : ''
-  }
-
-  function handleChange(e) {
-    const { name, value } = e.target
-    set(name, value)
-  }
-
-  async function consultarCep(valorCep) {
-    const digitos = valorCep.replace(/\D/g, '')
-    if (digitos.length !== 8 || consultandoRef.current) return
-    consultandoRef.current = true
-    const dados = await consultar(valorCep)
-    consultandoRef.current = false
-    if (dados) {
-      setForm((f) => ({
-        ...f,
-        logradouro: dados.logradouro || '',
-        bairro: dados.bairro || '',
-        cidade: dados.localidade || '',
-        estado: dados.uf || '',
-      }))
-      setEnderecoStatus('auto')
-      setTimeout(() => numeroRef.current?.focus(), 50)
-    } else {
-      setForm((f) => ({ ...f, logradouro: '', bairro: '', cidade: '', estado: '' }))
-      setEnderecoStatus('manual')
-    }
-  }
-
-  function handleCep(e) {
-    const novo = maskCEP(e.target.value)
-    set('cep', novo)
-    limparErro()
-    if (novo.replace(/\D/g, '').length === 8) consultarCep(novo)
-  }
-
-  function handleCepBlur() {
-    if (form.cep.replace(/\D/g, '').length === 8 && enderecoStatus === 'pendente') consultarCep(form.cep)
-  }
-
-  const enderecoBloqueado = enderecoStatus === 'pendente'
-  const enderecoReadOnly = enderecoStatus === 'auto'
-
-  function handleRG(e) {
-    set('rg', maskRG(e.target.value))
-  }
-
-  function handleCPF(e) {
-    set('cpf', maskCPF(e.target.value))
-  }
-
-  function handleTelefone(e) {
-    set('telefone', maskTelefone(e.target.value))
-  }
-
-  function handleDataNascimento(e) {
-    set('data_nascimento', maskDataBR(e.target.value))
-  }
-
-  function mudarFonte(valor) {
-    setForm((f) => ({ ...f, fonte: valor, nome_indicador: '', rede_social: '' }))
-  }
-
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-
-    const fonteSelecionada = fontes.find((f) => f.valor === form.fonte)
-    if (fonteSelecionada?.tipo_dependencia === 'texto' && !form.nome_indicador.trim()) {
-      setError(`Preencha o campo "${fonteSelecionada.rotulo_dependencia || 'detalhe'}".`)
-      return
-    }
-    if (fonteSelecionada?.tipo_dependencia === 'lista' && !form.rede_social) {
-      setError(`Selecione uma opção em "${fonteSelecionada.rotulo_dependencia || 'detalhe'}".`)
-      return
-    }
-    if (!validarCPF(form.cpf)) {
-      setError('O CPF informado não é válido. Confira os números digitados.')
-      return
-    }
-    if (!validarDataBR(form.data_nascimento)) {
-      setError('Data de nascimento inválida. Use o formato dd/mm/aaaa.')
-      return
-    }
-    if (enderecoBloqueado || !form.logradouro || !form.cidade) {
-      setError('Preencha o CEP para localizar o endereço (ou aguarde a busca terminar).')
-      return
-    }
-    if (!form.numero.trim()) {
-      setError('Preencha o número do endereço.')
-      return
-    }
-    if (!form.disponibilidade_horario_trabalho || form.disponibilidade_horario_trabalho === 'Nenhum horário selecionado') {
-      setError('Selecione ao menos um turno de disponibilidade de trabalho.')
-      return
-    }
-    if (!form.disponibilidade_horario_treinamento) {
-      setError('Selecione ao menos uma opção de horário de treinamento.')
+    const msg = validarCadastro(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: true })
+    if (msg) {
+      setError(msg)
+      setToast(msg)
       return
     }
 
     setSubmitting(true)
-    const tempoPreenchimentoSegundos = Math.round((Date.now() - inicioRef.current) / 1000)
-
     const payload = {
-      ...form,
-      nome_completo: normalizarTexto(form.nome_completo),
-      nome_mae: normalizarTexto(form.nome_mae),
-      nome_indicador: fonteSelecionada?.tipo_dependencia === 'texto' ? normalizarTexto(form.nome_indicador) : null,
-      rede_social: fonteSelecionada?.tipo_dependencia === 'lista' ? form.rede_social : null,
-      logradouro: normalizarTexto(form.logradouro),
-      bairro: normalizarTexto(form.bairro),
-      cidade: normalizarTexto(form.cidade),
-      data_nascimento: dataBRParaISO(form.data_nascimento),
-      disponibilidade_horario_treinamento: normalizarDisponibilidade(
-        form.disponibilidade_horario_treinamento.split(' | ').filter(Boolean),
-        opcoes.disponibilidade_horario_treinamento || [],
-      ),
-      tempo_preenchimento_segundos: tempoPreenchimentoSegundos,
+      ...montarPayload(form, { fontes, ocultos }),
+      tempo_preenchimento_segundos: Math.round((Date.now() - inicioRef.current) / 1000),
     }
-
-    const { error } = await supabase.from('candidatos').insert(payload)
+    const { error: erroInsert } = await supabase.from('candidatos').insert(payload)
     setSubmitting(false)
 
-    if (error) {
-      setError(
-        error.message?.includes('column')
-          ? 'O banco de dados ainda não está atualizado para este formulário. Peça para o analista rodar as atualizações pendentes no Supabase.'
-          : 'Não foi possível enviar seu cadastro. Verifique os dados e tente novamente.',
-      )
-      console.error(error)
+    if (erroInsert) {
+      let texto
+      if (erroInsert.message?.includes('CPF_DUPLICADO_HOJE')) {
+        texto = 'Este CPF já foi cadastrado hoje. Não é possível se cadastrar mais de uma vez no mesmo dia.'
+        setToast(texto)
+      } else if (erroInsert.message?.includes('column')) {
+        texto = 'O banco de dados ainda não está atualizado para este formulário. Peça para o analista rodar as atualizações pendentes no Supabase.'
+      } else {
+        texto = 'Não foi possível enviar seu cadastro. Verifique os dados e tente novamente.'
+      }
+      setError(texto)
+      console.error(erroInsert)
       return
     }
     setDone(true)
@@ -279,8 +69,7 @@ export default function CandidateForm() {
           <CheckCircle2 className="mx-auto text-sage-500 mb-4" size={44} />
           <h1 className="text-xl font-semibold text-navy-900 dark:text-white mb-2">Cadastro recebido!</h1>
           <p className="text-navy-600 dark:text-navy-300 text-sm">
-            Obrigado, {form.nome_completo.split(' ')[0]}. Seus dados foram registrados e você será
-            chamado(a) para a entrevista em breve.
+            Obrigado, {form.nome_completo.split(' ')[0]}. Seus dados foram registrados e você será chamado(a) para a entrevista em breve.
           </p>
         </div>
       </div>
@@ -290,345 +79,26 @@ export default function CandidateForm() {
   return (
     <div className="min-h-screen bg-navy-50 dark:bg-navy-950 py-6 px-3 sm:py-10 sm:px-4">
       <div className="max-w-xl mx-auto">
-        {configFormulario?.capa_url && (
-          <img
-            src={configFormulario.capa_url}
-            alt=""
-            className="w-full h-32 sm:h-44 object-cover rounded-lg mb-6 sm:mb-8"
-          />
-        )}
+        {config?.capa_url && <img src={config.capa_url} alt="" className="w-full h-32 sm:h-44 object-cover rounded-lg mb-6 sm:mb-8" />}
         <div className="flex flex-col items-center mb-6 sm:mb-8">
-          <img
-            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
-            alt="Callink"
-            className="h-7 w-auto dark:hidden"
-          />
-          <img
-            src="https://callink.com.br/vagas/wp-content/uploads/2022/10/callink-azul-1.png"
-            alt="Callink"
-            className="h-7 w-auto hidden dark:block brightness-0 invert"
-          />
+          <img src={LOGO} alt="Callink" className="h-7 w-auto dark:hidden" />
+          <img src={LOGO} alt="Callink" className="h-7 w-auto hidden dark:block brightness-0 invert" />
           <p className="text-[13px] font-medium text-navy-800 dark:text-navy-200 mt-3">Cadastro de Candidato</p>
           <p className="text-[11px] text-navy-400 mt-0.5">Processo seletivo</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="card p-4 sm:p-8 space-y-6 sm:space-y-7">
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">
-              Como você chegou até nós
-            </h2>
-            <CampoFonte
-              fontes={fontes}
-              fonteValor={form.fonte}
-              onFonteChange={mudarFonte}
-              detalheValor={form.nome_indicador}
-              onDetalheChange={(v) => set('nome_indicador', v)}
-              subValor={form.rede_social}
-              onSubChange={(v) => set('rede_social', v)}
-              comentario={comentarios.fonte}
-              posicaoComentario={posicoes.fonte}
-              rotulo={titulos.fonte}
-            />
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Dados pessoais</h2>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.nome_completo || 'Nome completo'}</label>
-              <input
-                name="nome_completo"
-                required
-                className={`field-input ${classeErro('nome_completo')}`}
-                value={form.nome_completo}
-                onChange={handleChange}
-                onBlur={() => {
-                  normalizarAoSair('nome_completo')()
-                  validarAoSair('nome_completo', form.nome_completo)
-                }}
-              />
-              <ComentarioCampo texto={comentarios.nome_completo} posicao={posicoes.nome_completo} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.data_nascimento || 'Nascimento'}</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  name="data_nascimento"
-                  required
-                  className={`field-input ${classeErro('data_nascimento')}`}
-                  placeholder="dd/mm/aaaa"
-                  value={form.data_nascimento}
-                  onChange={handleDataNascimento}
-                  onBlur={() => validarAoSair('data_nascimento', form.data_nascimento)}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.sexo || 'Sexo'}</label>
-                <select name="sexo" required className="field-select" value={form.sexo} onChange={handleChange}>
-                  <option value="" disabled>
-                    Selecione
-                  </option>
-                  {(opcoes.sexo || []).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                <ComentarioCampo texto={comentarios.sexo} posicao={posicoes.sexo} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.rg || 'RG'}</label>
-                <input
-                  name="rg"
-                  required
-                  inputMode="numeric"
-                  className={`field-input ${classeErro('rg')}`}
-                  value={form.rg}
-                  onChange={handleRG}
-                  onBlur={() => validarAoSair('rg', form.rg)}
-                  placeholder="Somente números"
-                />
-                <ComentarioCampo texto={comentarios.rg} posicao={posicoes.rg} />
-              </div>
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.cpf || 'CPF'}</label>
-                <input
-                  name="cpf"
-                  required
-                  inputMode="numeric"
-                  className={`field-input ${classeErro('cpf')}`}
-                  value={form.cpf}
-                  onChange={handleCPF}
-                  onBlur={() => validarAoSair('cpf', form.cpf)}
-                  placeholder="000.000.000-00"
-                />
-                <ComentarioCampo texto={comentarios.cpf} posicao={posicoes.cpf} />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.nome_mae || 'Nome da mãe'}</label>
-              <input
-                name="nome_mae"
-                required
-                className={`field-input ${classeErro('nome_mae')}`}
-                value={form.nome_mae}
-                onChange={handleChange}
-                onBlur={() => {
-                  normalizarAoSair('nome_mae')()
-                  validarAoSair('nome_mae', form.nome_mae)
-                }}
-              />
-              <ComentarioCampo texto={comentarios.nome_mae} posicao={posicoes.nome_mae} />
-            </div>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.telefone || 'Telefone'}</label>
-              <input
-                name="telefone"
-                required
-                inputMode="numeric"
-                className={`field-input ${classeErro('telefone')}`}
-                value={form.telefone}
-                onChange={handleTelefone}
-                onBlur={() => validarAoSair('telefone', form.telefone)}
-                placeholder="(00) 0 0000-0000"
-              />
-              <ComentarioCampo texto={comentarios.telefone} posicao={posicoes.telefone} />
-            </div>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.email || 'E-mail'}</label>
-              <input
-                type="email"
-                name="email"
-                required
-                className={`field-input ${classeErro('email')}`}
-                value={form.email}
-                onChange={handleChange}
-                onBlur={() => validarAoSair('email', form.email)}
-                placeholder="seuemail@exemplo.com"
-              />
-              <ComentarioCampo texto={comentarios.email} posicao={posicoes.email} />
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Endereço</h2>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.cep || 'CEP'}</label>
-              <div className="relative">
-                <input
-                  name="cep"
-                  required
-                  inputMode="numeric"
-                  className={`field-input ${classeErro('cep')}`}
-                  value={form.cep}
-                  onChange={handleCep}
-                  onBlur={() => {
-                    handleCepBlur()
-                    validarAoSair('cep', form.cep)
-                  }}
-                  placeholder="00000-000"
-                />
-                {carregandoCep && (
-                  <Loader2 size={16} className="animate-spin text-navy-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                )}
-              </div>
-              {erroCep && <p className="text-xs text-clay-600 mt-1.5">{erroCep}</p>}
-            </div>
-
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.logradouro || 'Rua / Logradouro'}</label>
-              <input
-                className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
-                value={form.logradouro}
-                readOnly={enderecoReadOnly}
-                disabled={enderecoBloqueado || carregandoCep}
-                onChange={(e) => set('logradouro', e.target.value)}
-                onBlur={enderecoReadOnly ? undefined : normalizarAoSair('logradouro')}
-                placeholder={enderecoBloqueado ? 'Preencha o CEP primeiro' : ''}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.numero || 'Número'}</label>
-                <input
-                  ref={numeroRef}
-                  className="field-input"
-                  value={form.numero}
-                  disabled={enderecoBloqueado || carregandoCep}
-                  onChange={(e) => set('numero', e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.complemento || 'Complemento'}</label>
-                <input
-                  className="field-input"
-                  value={form.complemento}
-                  disabled={enderecoBloqueado || carregandoCep}
-                  onChange={(e) => set('complemento', e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.bairro || 'Bairro'}</label>
-                <input
-                  className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
-                  value={form.bairro}
-                  readOnly={enderecoReadOnly}
-                  disabled={enderecoBloqueado || carregandoCep}
-                  onChange={(e) => set('bairro', e.target.value)}
-                  onBlur={enderecoReadOnly ? undefined : normalizarAoSair('bairro')}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="field-label">{titulos.cidade || 'Cidade'}</label>
-                <input
-                  className="field-input disabled:opacity-60 disabled:cursor-not-allowed"
-                  value={form.cidade}
-                  readOnly={enderecoReadOnly}
-                  disabled={enderecoBloqueado || carregandoCep}
-                  onChange={(e) => set('cidade', e.target.value)}
-                  onBlur={enderecoReadOnly ? undefined : normalizarAoSair('cidade')}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.estado || 'Estado'}</label>
-              <input
-                className="field-input disabled:opacity-60 disabled:cursor-not-allowed max-w-[100px]"
-                value={form.estado}
-                readOnly={enderecoReadOnly}
-                disabled={enderecoBloqueado || carregandoCep}
-                onChange={(e) => set('estado', e.target.value.toUpperCase().slice(0, 2))}
-              />
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Disponibilidade</h2>
-            <SeletorTurnos
-              label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho'}
-              onChange={(v) => set('disponibilidade_horario_trabalho', v)}
-              comentario={comentarios.disponibilidade_horario_trabalho}
-              posicaoComentario={posicoes.disponibilidade_horario_trabalho}
-            />
-            <CheckboxGroup
-              label={titulos.disponibilidade_horario_treinamento || 'Horário de treinamento (pode marcar mais de um)'}
-              opcoes={opcoes.disponibilidade_horario_treinamento || []}
-              valor={form.disponibilidade_horario_treinamento}
-              onChange={(v) => set('disponibilidade_horario_treinamento', v)}
-              comentario={comentarios.disponibilidade_horario_treinamento}
-            posicaoComentario={posicoes.disponibilidade_horario_treinamento}
-            />
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.disponibilidade_jornada || 'Jornada de trabalho'}</label>
-              <select
-                name="disponibilidade_jornada"
-                required
-                className="field-select"
-                value={form.disponibilidade_jornada}
-                onChange={handleChange}
-              >
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {(opcoes.disponibilidade_jornada || []).map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-              <ComentarioCampo texto={comentarios.disponibilidade_jornada} posicao={posicoes.disponibilidade_jornada} />
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800">Outras informações</h2>
-            <SimNao
-              label={titulos.possui_veiculo || 'Possui veículo próprio?'}
-              name="possui_veiculo"
-              value={form.possui_veiculo}
-              onChange={set}
-              comentario={comentarios.possui_veiculo}
-            posicaoComentario={posicoes.possui_veiculo}
-            />
-            <SimNao
-              label={titulos.possui_ensino_superior || 'Possui ensino superior?'}
-              name="possui_ensino_superior"
-              value={form.possui_ensino_superior}
-              onChange={set}
-              comentario={comentarios.possui_ensino_superior}
-            posicaoComentario={posicoes.possui_ensino_superior}
-            />
-            <SimNao
-              label={
-                titulos.concorda_turno_treinamento ||
-                'Caso aprovado(a), os treinamentos serão fora do horário da jornada de trabalho, em um dos turnos definidos pela operação. Você concorda?'
-              }
-              name="concorda_turno_treinamento"
-              value={form.concorda_turno_treinamento}
-              onChange={set}
-              comentario={comentarios.concorda_turno_treinamento}
-            posicaoComentario={posicoes.concorda_turno_treinamento}
-            />
-            <div className="flex flex-col">
-              <label className="field-label">{titulos.observacoes || 'Observações'}</label>
-              <textarea
-                name="observacoes"
-                rows={3}
-                className="field-input"
-                value={form.observacoes}
-                onChange={handleChange}
-              />
-              <ComentarioCampo texto={comentarios.observacoes} posicao={posicoes.observacoes} />
-            </div>
-          </section>
-
+        <form onSubmit={handleSubmit} noValidate className="card p-4 sm:p-8 space-y-6 sm:space-y-7">
+          <CamposCadastro
+            form={form}
+            setForm={setForm}
+            opcoes={opcoes}
+            fontes={fontes}
+            customizados={customizados}
+            ocultos={ocultos}
+            cep={cep}
+            avisar={setToast}
+          />
           {error && <p className="text-sm text-clay-600">{error}</p>}
-
           <button type="submit" disabled={submitting} className="btn-primary w-full py-3.5 text-base">
             {submitting ? 'Enviando…' : 'Enviar cadastro'}
           </button>

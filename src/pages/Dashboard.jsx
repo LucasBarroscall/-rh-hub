@@ -24,6 +24,9 @@ import FunilChart from '../components/FunilChart'
 import ChartTooltip from '../components/ChartTooltip'
 import MapaDeCalor from '../components/MapaDeCalor'
 import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
+import { useAuth } from '../contexts/AuthContext'
+import { buscarTodos } from '../lib/buscarTodos'
+import { aprovadoFinal, decididoFinal } from '../lib/status'
 import { ETAPAS_FUNIL, MARCOS_FUNIL, formatarNumero, formatarDuracaoCurta, formatarDuracaoLonga } from '../lib/status'
 
 const CORES = ['#2f4c73', '#D4D943', '#30cff2', '#a64170', '#2a438c', '#7c93b8']
@@ -51,6 +54,7 @@ const CAMPOS_FILTRO = [
   { chave: 'bairro', label: 'Bairro' },
   { chave: 'faixaEtaria', label: 'Faixa etária' },
   { chave: 'etapa', label: 'Etapa do funil' },
+  { chave: 'produto', label: 'Produto' },
 ]
 
 function inicioPeriodo(id) {
@@ -106,7 +110,7 @@ function ChartCard({ title, children, onClear, cleared }) {
   )
 }
 
-const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, bairro: null, etapa: null, faixaEtaria: null }
+const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, bairro: null, etapa: null, faixaEtaria: null, produto: null, entrevistador: null }
 
 export default function Dashboard() {
   const [dados, setDados] = useState([])
@@ -115,10 +119,21 @@ export default function Dashboard() {
   const [intervalo, setIntervalo] = useState({ inicio: null, fim: null })
   const [granularidade, setGranularidade] = useState('dia')
   const [filtros, setFiltros] = useState(FILTROS_VAZIOS)
+  const { profile: perfilLogado } = useAuth()
+  const ehAnalista = perfilLogado?.role === 'analista'
+  const [perfis, setPerfis] = useState([])
+  useEffect(() => {
+    if (!ehAnalista) return
+    supabase
+      .from('profiles')
+      .select('id, nome, role')
+      .then(({ data }) => setPerfis(data || []))
+  }, [ehAnalista])
+  const nomesPerfis = useMemo(() => Object.fromEntries(perfis.map((p) => [p.id, p.nome])), [perfis])
 
   const carregar = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase.from('candidatos').select('*').order('created_at', { ascending: true })
+    const { data, error } = await buscarTodos(supabase.from('candidatos').select('*').order('created_at', { ascending: true }).order('id'))
     if (!error) setDados(data)
     setLoading(false)
   }, [])
@@ -155,6 +170,8 @@ export default function Dashboard() {
       if (filtros.bairro && c.bairro !== filtros.bairro) return false
       if (filtros.faixaEtaria && faixaEtariaDe(c.idade) !== filtros.faixaEtaria) return false
       if (filtros.etapa && etapaFunil(c) !== filtros.etapa) return false
+      if (filtros.produto && c.produto !== filtros.produto) return false
+      if (filtros.entrevistador && ![c.entrevistador1_id, c.entrevistador2_id, c.entrevistador3_id].includes(filtros.entrevistador)) return false
       return true
     })
   }, [base, filtros])
@@ -164,12 +181,13 @@ export default function Dashboard() {
   }
 
   const opcoesPorCampo = useMemo(() => {
-    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), bairro: new Set(), etapa: new Set() }
+    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), bairro: new Set(), etapa: new Set(), produto: new Set() }
     base.forEach((c) => {
       if (c.fonte) conj.fonte.add(c.fonte)
       if (c.sexo) conj.sexo.add(c.sexo)
       if (c.cidade) conj.cidade.add(c.cidade)
       if (c.bairro) conj.bairro.add(c.bairro)
+      if (c.produto) conj.produto.add(c.produto)
       conj.etapa.add(etapaFunil(c))
     })
     return {
@@ -177,6 +195,7 @@ export default function Dashboard() {
       sexo: [...conj.sexo].sort(),
       cidade: [...conj.cidade].sort(),
       bairro: [...conj.bairro].sort(),
+      produto: [...conj.produto].sort(),
       etapa: [...conj.etapa].sort(),
       faixaEtaria: FAIXAS_ETARIAS,
     }
@@ -184,8 +203,8 @@ export default function Dashboard() {
 
   // ---- KPIs ----
   const total = filtrados.length
-  const decididos = filtrados.filter((c) => c.decisao_final)
-  const aprovados = filtrados.filter((c) => c.decisao_final === 'Aprovado')
+  const decididos = filtrados.filter((c) => decididoFinal(c))
+  const aprovados = filtrados.filter((c) => aprovadoFinal(c))
   const taxaAprovacao = decididos.length ? Math.round((aprovados.length / decididos.length) * 100) : 0
   const testados = filtrados.filter((c) => c.teste_realizado)
   const wpmMedioNum = testados.length ? testados.reduce((s, c) => s + Number(c.wpm || 0), 0) / testados.length : null
@@ -257,12 +276,67 @@ export default function Dashboard() {
     const mapa = {}
     filtrados.forEach((c) => {
       const chave = chaveGranular(c.created_at.slice(0, 10), granularidade)
-      mapa[chave] = (mapa[chave] || 0) + 1
+      if (!mapa[chave]) mapa[chave] = { total: 0, decididos: 0, aprovados: 0 }
+      mapa[chave].total++
+      if (decididoFinal(c)) {
+        mapa[chave].decididos++
+        if (aprovadoFinal(c)) mapa[chave].aprovados++
+      }
     })
     return Object.entries(mapa)
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([chave, value]) => ({ data: rotuloGranular(chave, granularidade), Candidatos: value }))
+      .map(([chave, m]) => ({
+        data: rotuloGranular(chave, granularidade),
+        Candidatos: m.total,
+        'Taxa de aprovação': m.decididos ? Math.round((m.aprovados / m.decididos) * 100) : 0,
+      }))
   }, [filtrados, granularidade])
+
+  const porEntrevistador = useMemo(() => {
+    const mapa = {}
+    const pega = (id) => {
+      if (!id) return null
+      if (!mapa[id]) mapa[id] = { nome: nomesPerfis[id] || 'Usuário', e1: [0, 0], e2: [0, 0], e3: [0, 0] }
+      return mapa[id]
+    }
+    filtrados.forEach((c) => {
+      const a = pega(c.entrevistador1_id)
+      if (a && c.compareceu_entrevista === true && c.aprovado_entrevista != null) {
+        a.e1[1]++
+        if (c.aprovado_entrevista) a.e1[0]++
+      }
+      const b = pega(c.entrevistador2_id)
+      if (b && c.teste_realizado === true && c.aprovado_teste != null) {
+        b.e2[1]++
+        if (c.aprovado_teste) b.e2[0]++
+      }
+      const e = pega(c.entrevistador3_id)
+      if (e && (c.decisao_final === 'Reprovado' || c.compareceu_alo === true)) {
+        e.e3[1]++
+        if (c.compareceu_alo === true) e.e3[0]++
+      }
+    })
+    const pct = (p) => (p[1] ? Math.round((p[0] / p[1]) * 100) : null)
+    return Object.values(mapa).map((m) => ({
+      nome: m.nome,
+      'Etapa 1': pct(m.e1),
+      'Etapa 2': pct(m.e2),
+      'Etapa 3': pct(m.e3),
+      d1: `${m.e1[0]}/${m.e1[1]}`,
+      d2: `${m.e2[0]}/${m.e2[1]}`,
+      d3: `${m.e3[0]}/${m.e3[1]}`,
+    }))
+  }, [filtrados, nomesPerfis])
+
+  const porResultadoTeste = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      if (c.teste_realizado === true && c.resultado_teste) mapa[c.resultado_teste] = (mapa[c.resultado_teste] || 0) + 1
+    })
+    return Object.entries(mapa)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [filtrados])
 
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v)
 
@@ -273,9 +347,9 @@ export default function Dashboard() {
       const chave = c.fonte || 'Não informado'
       if (!mapa[chave]) mapa[chave] = { fonte: chave, total: 0, decididos: 0, aprovados: 0, wpmSoma: 0, wpmN: 0 }
       mapa[chave].total++
-      if (c.decisao_final) {
+      if (decididoFinal(c)) {
         mapa[chave].decididos++
-        if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+        if (aprovadoFinal(c)) mapa[chave].aprovados++
       }
       if (c.teste_realizado) {
         mapa[chave].wpmSoma += Number(c.wpm || 0)
@@ -318,7 +392,7 @@ export default function Dashboard() {
       if (!c.nome_indicador || c.fonte === 'Redes Sociais') return
       if (!mapa[c.nome_indicador]) mapa[c.nome_indicador] = { nome: c.nome_indicador, total: 0, aprovados: 0 }
       mapa[c.nome_indicador].total++
-      if (c.decisao_final === 'Aprovado') mapa[c.nome_indicador].aprovados++
+      if (aprovadoFinal(c)) mapa[c.nome_indicador].aprovados++
     })
     return Object.values(mapa)
       .sort((a, b) => b.total - a.total)
@@ -402,10 +476,10 @@ export default function Dashboard() {
 
   // ---- 7. Veículo / Ensino superior x aprovação ----
   function taxaPorCondicao(campo) {
-    const comCondicao = filtrados.filter((c) => c[campo] === true && c.decisao_final)
-    const semCondicao = filtrados.filter((c) => c[campo] === false && c.decisao_final)
+    const comCondicao = filtrados.filter((c) => c[campo] === true && decididoFinal(c))
+    const semCondicao = filtrados.filter((c) => c[campo] === false && decididoFinal(c))
     const taxa = (lista) => {
-      const aprovados = lista.filter((c) => c.decisao_final === 'Aprovado').length
+      const aprovados = lista.filter((c) => aprovadoFinal(c)).length
       return lista.length ? Math.round((aprovados / lista.length) * 100) : null
     }
     return {
@@ -441,8 +515,8 @@ export default function Dashboard() {
     const reincidentes = grupos.filter((g) => g.length > 1).flat()
     const novatos = grupos.filter((g) => g.length === 1).flat()
     const taxa = (lista) => {
-      const decididos = lista.filter((c) => c.decisao_final)
-      const aprovados = decididos.filter((c) => c.decisao_final === 'Aprovado')
+      const decididos = lista.filter((c) => decididoFinal(c))
+      const aprovados = decididos.filter((c) => aprovadoFinal(c))
       return decididos.length ? Math.round((aprovados.length / decididos.length) * 100) : null
     }
     return {
@@ -479,9 +553,9 @@ export default function Dashboard() {
       const chave = c.created_at.slice(0, 7) // YYYY-MM
       if (!mapa[chave]) mapa[chave] = { chave, total: 0, aprovados: 0, decididos: 0 }
       mapa[chave].total++
-      if (c.decisao_final) {
+      if (decididoFinal(c)) {
         mapa[chave].decididos++
-        if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+        if (aprovadoFinal(c)) mapa[chave].aprovados++
       }
     })
     return Object.values(mapa)
@@ -500,11 +574,11 @@ export default function Dashboard() {
   const turnoTreinamento = useMemo(() => {
     const mapa = {}
     filtrados.forEach((c) => {
-      if (!c.disponibilidade_horario_treinamento || !c.decisao_final) return
+      if (!c.disponibilidade_horario_treinamento || !decididoFinal(c)) return
       const chave = c.disponibilidade_horario_treinamento
       if (!mapa[chave]) mapa[chave] = { turno: chave, decididos: 0, aprovados: 0 }
       mapa[chave].decididos++
-      if (c.decisao_final === 'Aprovado') mapa[chave].aprovados++
+      if (aprovadoFinal(c)) mapa[chave].aprovados++
     })
     return Object.values(mapa)
       .map((m) => ({ ...m, taxa: Math.round((m.aprovados / m.decididos) * 100) }))
@@ -658,6 +732,23 @@ export default function Dashboard() {
               </select>
             </div>
           ))}
+          {ehAnalista && (
+            <div>
+              <label className="field-label">Entrevistador</label>
+              <select
+                className="field-select py-1.5 text-xs"
+                value={filtros.entrevistador || ''}
+                onChange={(e) => setFiltros((f) => ({ ...f, entrevistador: e.target.value || null }))}
+              >
+                <option value="">Todos</option>
+                {perfis.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {filtrosAtivos.length > 0 && (
             <button
               onClick={() => setFiltros(FILTROS_VAZIOS)}
@@ -677,7 +768,7 @@ export default function Dashboard() {
                 onClick={() => setFiltros((f) => ({ ...f, [campo]: null }))}
                 className="pill bg-navy-700 text-white"
               >
-                {valor} <X size={12} />
+                {campo === 'entrevistador' ? nomesPerfis[valor] || valor : valor} <X size={12} />
               </button>
             ))}
           </div>
@@ -886,9 +977,9 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard title="Candidatos cadastrados">
+              <ChartCard title="Candidatos cadastrados e taxa de aprovação">
                 <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={candidatosPorPeriodo} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <ComposedChart data={candidatosPorPeriodo} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <defs>
                       <linearGradient id="gradCandidatos" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#30cff2" stopOpacity={0.28} />
@@ -897,13 +988,84 @@ export default function Dashboard() {
                     </defs>
                     <CartesianGrid strokeDasharray="none" stroke="#EEF1F8" vertical={false} />
                     <XAxis dataKey="data" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={28} allowDecimals={false} />
+                    <YAxis yAxisId="esq" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={28} allowDecimals={false} />
+                    <YAxis yAxisId="dir" orientation="right" domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={40} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Area type="monotone" dataKey="Candidatos" stroke="#1AB6D8" strokeWidth={2} fill="url(#gradCandidatos)" dot={false} activeDot={{ r: 4 }} />
-                  </AreaChart>
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Area yAxisId="esq" type="monotone" dataKey="Candidatos" stroke="#1AB6D8" strokeWidth={2} fill="url(#gradCandidatos)" dot={false} activeDot={{ r: 4 }} />
+                    <Line yAxisId="dir" type="monotone" dataKey="Taxa de aprovação" stroke="#a64170" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </ChartCard>
             </div>
+
+            {ehAnalista && (
+              <div className="card p-5 mb-5">
+                <h3 className="text-base font-semibold text-navy-900 dark:text-white">Taxa de aprovação por entrevistador</h3>
+                <p className="text-xs text-navy-400 mt-1 mb-4">
+                  Etapas 1 e 2: aprovados ÷ avaliados. Etapa 3: entregas realizadas (Alô) ÷ concluídos (entregas + reprovados). Use o filtro
+                  "Entrevistador" para ver todos os gráficos de uma pessoa.
+                </p>
+                {porEntrevistador.length === 0 ? (
+                  <p className="text-sm text-navy-400">Ainda sem dados atribuídos a entrevistadores neste filtro.</p>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={porEntrevistador}>
+                        <CartesianGrid strokeDasharray="none" vertical={false} stroke="#EEF1F8" />
+                        <XAxis dataKey="nome" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                        <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} width={40} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="Etapa 1" fill="#2f4c73" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Etapa 2" fill="#30cff2" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="Etapa 3" fill="#a64170" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="overflow-x-auto mt-4">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-navy-400 border-b border-navy-100 dark:border-navy-800">
+                            <th className="py-2 pr-4">Entrevistador</th>
+                            <th className="py-2 pr-4">Etapa 1 (aprov./aval.)</th>
+                            <th className="py-2 pr-4">Etapa 2 (aprov./aval.)</th>
+                            <th className="py-2">Etapa 3 (entregas/concl.)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-navy-100 dark:divide-navy-800">
+                          {porEntrevistador.map((m) => (
+                            <tr key={m.nome}>
+                              <td className="py-2 pr-4 font-medium text-navy-800 dark:text-navy-100">{m.nome}</td>
+                              <td className="py-2 pr-4">{m.d1}</td>
+                              <td className="py-2 pr-4">{m.d2}</td>
+                              <td className="py-2">{m.d3}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {porResultadoTeste.length > 0 && (
+              <ChartCard title="Resultado do teste de digitação (por tipo de atendimento)">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={porResultadoTeste} layout="vertical" margin={{ left: 10 }}>
+                    <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
+                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                      {porResultadoTeste.map((e, i) => (
+                        <Cell key={e.name} fill={e.name === 'Reprovado' ? '#C1594B' : CORES[i % CORES.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            )}
 
             <div className="pt-2 pb-3 mt-8 border-t border-navy-100 dark:border-navy-800">
               <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Insights avançados</h2>

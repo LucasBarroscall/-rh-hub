@@ -4,6 +4,8 @@ export default function CampoFonte({
   onFonteChange,
   detalheValor,
   onDetalheChange,
+  onDetalheBlur,
+  detalheInvalido,
   subValor,
   onSubChange,
   comentario,
@@ -38,8 +40,9 @@ export default function CampoFonte({
           <label className="field-label">{selecionada.rotulo_dependencia || 'Detalhe'}</label>
           <input
             required
-            className="field-input"
+            className={`field-input ${detalheInvalido ? 'border-clay-500 ring-2 ring-clay-500/20' : ''}`}
             value={detalheValor}
+            onBlur={onDetalheBlur}
             onChange={(e) => onDetalheChange(e.target.value)}
             placeholder={selecionada.placeholder_dependencia || ''}
           />

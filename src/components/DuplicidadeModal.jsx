@@ -17,6 +17,10 @@ const CAMPOS_REPETIVEIS = [
   'data_treinamento', 'compareceu_treinamento',
   'data_alo', 'compareceu_alo',
   'compliance', 'decisao_final',
+  'aprovado_teste',
+  'resultado_teste',
+  'documentos',
+  'produto',
 ]
 
 function resultadoResumo(d) {

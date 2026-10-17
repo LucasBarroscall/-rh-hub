@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import { buscarTodos } from '../lib/buscarTodos'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
 import DuplicidadeModal from '../components/DuplicidadeModal'
@@ -41,7 +42,7 @@ export default function Interviewer1() {
     if (!mostrarTodos) {
       query = query.or('compareceu_entrevista.is.null,and(compareceu_entrevista.eq.true,aprovado_entrevista.is.null)')
     }
-    const { data, error } = await query
+    const { data, error } = await buscarTodos(query.order('id'))
     if (!error) {
       setFila(data)
       setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))

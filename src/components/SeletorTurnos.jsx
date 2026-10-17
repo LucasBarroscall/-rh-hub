@@ -44,9 +44,22 @@ export function calcularTextoTurnos({ manha, tarde, noite, madrugada }) {
 }
 
 const VAZIO = { manha: false, tarde: false, noite: false, madrugada: false }
+const TODOS = { manha: true, tarde: true, noite: true, madrugada: true }
 
-export default function SeletorTurnos({ label, onChange, comentario, posicaoComentario = 'depois' }) {
-  const [selecionados, setSelecionados] = useState(VAZIO)
+// Reconstrói os 4 turnos a partir de um texto já salvo (para a edição).
+function interpretar(valor) {
+  if (!valor) return VAZIO
+  for (let i = 0; i < 16; i++) {
+    const s = { manha: !!(i & 1), tarde: !!(i & 2), noite: !!(i & 4), madrugada: !!(i & 8) }
+    if (calcularTextoTurnos(s) === valor) return s
+  }
+  if (valor === 'Total' || valor.split(' | ').length >= 4) return TODOS
+  const l = valor.toLowerCase()
+  return { manha: l.includes('manhã'), tarde: l.includes('tarde'), noite: l.includes('noite'), madrugada: l.includes('madrugada') }
+}
+
+export default function SeletorTurnos({ label, onChange, valorInicial = '', comentario, posicaoComentario = 'depois' }) {
+  const [selecionados, setSelecionados] = useState(() => interpretar(valorInicial))
 
   const totalAtivo = selecionados.manha && selecionados.tarde && selecionados.noite && selecionados.madrugada
   const texto = calcularTextoTurnos(selecionados)
@@ -56,22 +69,21 @@ export default function SeletorTurnos({ label, onChange, comentario, posicaoCome
     onChange(calcularTextoTurnos(novo))
   }
 
-  // Se "Total" estava ativo e qualquer turno é desmarcado, "Total" apaga
-  // sozinho (porque deixa de ter os 4 marcados). Se os 4 forem marcados
-  // manualmente, "Total" acende sozinho — ambos derivam do mesmo estado.
+  // "Total" acende sozinho quando os 4 estão marcados e apaga se qualquer um
+  // for desmarcado — porque deriva do mesmo estado dos 4 turnos.
   function alternarTurno(id) {
     aplicar({ ...selecionados, [id]: !selecionados[id] })
   }
 
   function alternarTotal() {
-    aplicar(totalAtivo ? VAZIO : { manha: true, tarde: true, noite: true, madrugada: true })
+    aplicar(totalAtivo ? VAZIO : TODOS)
   }
 
-  const blocoComentario = comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
+  const bloco = comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
 
   return (
     <div>
-      {posicaoComentario === 'antes' && blocoComentario}
+      {posicaoComentario === 'antes' && bloco}
       <span className="field-label">{label}</span>
       <div className="grid grid-cols-2 gap-2 mb-2">
         {TURNOS.map((t) => (
@@ -105,7 +117,7 @@ export default function SeletorTurnos({ label, onChange, comentario, posicaoCome
         <p className="text-xs font-medium text-navy-500 dark:text-navy-400 mb-0.5">Horário de disponibilidade selecionado:</p>
         <p className="text-sm text-navy-800 dark:text-navy-100 font-medium">{texto}</p>
       </div>
-      {posicaoComentario !== 'antes' && blocoComentario}
+      {posicaoComentario !== 'antes' && bloco}
     </div>
   )
 }

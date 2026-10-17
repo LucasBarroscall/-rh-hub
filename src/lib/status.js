@@ -44,6 +44,7 @@ export function exameAtrasado(c) {
 }
 
 export function statusAtual(c) {
+  if (c.compareceu_alo === true) return 'Entrega Realizada'
   if (c.aprovado_entrevista === false) return 'Reprovado na entrevista'
   if (c.aprovado_teste === false) return 'Reprovado no teste'
   if (c.decisao_final === 'Reprovado') return 'Reprovado'
@@ -95,4 +96,15 @@ export function formatarDuracaoLonga(ms) {
   const dias = Math.floor(horas / 24)
   const horasRestantes = horas % 24
   return `${dias} dia${dias !== 1 ? 's' : ''}${horasRestantes ? ` e ${horasRestantes} h` : ''}`
+}
+
+// Desfecho do candidato: "aprovado" = Alô realizado (processo finalizado com sucesso).
+export function aprovadoFinal(c) {
+  return c.compareceu_alo === true
+}
+export function reprovadoGeral(c) {
+  return c.aprovado_entrevista === false || c.aprovado_teste === false || c.decisao_final === 'Reprovado'
+}
+export function decididoFinal(c) {
+  return aprovadoFinal(c) || reprovadoGeral(c)
 }

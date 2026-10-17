@@ -2,6 +2,10 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import AbaCandidatos from '../components/admin/AbaCandidatos'
+import AbaLog from '../components/admin/AbaLog'
+import AbaCamposFormulario from '../components/admin/AbaCamposFormulario'
+import AbaRegraTeste from '../components/admin/AbaRegraTeste'
 import { formatarData, etapaFunil, corEtapa } from '../lib/candidato'
 import EditarOpcaoModal from '../components/EditarOpcaoModal'
 import EditorRico from '../components/EditorRico'
@@ -29,313 +33,6 @@ function TabButton({ active, onClick, children }) {
     >
       {children}
     </button>
-  )
-}
-
-function AbaCandidatos() {
-  const [dados, setDados] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [busca, setBusca] = useState('')
-  const [editando, setEditando] = useState(null)
-  const [importando, setImportando] = useState(false)
-  const [resultadoImportacao, setResultadoImportacao] = useState(null)
-  const [selecionados, setSelecionados] = useState(new Set())
-  const inputArquivoRef = useRef(null)
-
-  const carregar = useCallback(async () => {
-    setLoading(true)
-    const { data, error } = await supabase.from('candidatos').select('*').order('created_at', { ascending: false })
-    if (!error) setDados(data)
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    carregar()
-  }, [carregar])
-
-  const buscaLimpa = busca.toLowerCase().trim()
-  const buscaDigitos = busca.replace(/\D/g, '')
-  const filtrados = dados.filter((c) => {
-    if (!buscaLimpa) return true
-    const nomeBate = c.nome_completo?.toLowerCase().includes(buscaLimpa)
-    const cpfBate = buscaDigitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(buscaDigitos)
-    return nomeBate || cpfBate
-  })
-
-  function alternarSelecao(id) {
-    setSelecionados((s) => {
-      const novo = new Set(s)
-      if (novo.has(id)) novo.delete(id)
-      else novo.add(id)
-      return novo
-    })
-  }
-
-  function alternarSelecionarTodos() {
-    if (selecionados.size === filtrados.length) setSelecionados(new Set())
-    else setSelecionados(new Set(filtrados.map((c) => c.id)))
-  }
-
-  async function excluirSelecionados() {
-    if (!confirm(`Excluir definitivamente ${selecionados.size} candidato(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return
-    const { error } = await supabase.from('candidatos').delete().in('id', [...selecionados])
-    if (!error) {
-      setSelecionados(new Set())
-      carregar()
-    }
-  }
-
-  function exportarCSV() {
-    const linhas = dados.map((c) => {
-      const copia = { ...c }
-      COLUNAS_GERADAS.forEach((col) => delete copia[col])
-      return copia
-    })
-    const csv = Papa.unparse(linhas)
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `candidatos_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function baixarModelo() {
-    const linhaExemplo = {
-      created_at: '',
-      fonte: 'Indicação',
-      nome_indicador: 'MARIA SILVA',
-      nome_completo: 'JOAO DA SILVA SANTOS',
-      telefone: '(11) 9 8888-7777',
-      rg: '123456789',
-      cpf: '12345678900',
-      data_nascimento: '1995-05-20',
-      sexo: 'Masculino',
-      nome_mae: 'ANA SILVA SANTOS',
-      logradouro: 'RUA DAS FLORES',
-      numero: '123',
-      complemento: 'APTO 45',
-      bairro: 'CENTRO',
-      cidade: 'ARACAJU',
-      estado: 'SE',
-      cep: '49000000',
-      email: 'joao.silva@exemplo.com',
-      disponibilidade_horario_trabalho: 'Das 06:00 às 18:00 (Manhã e Tarde)',
-      disponibilidade_horario_treinamento: 'Manhã/Tarde',
-      disponibilidade_jornada: 'Período integral',
-      possui_veiculo: 'true',
-      concorda_turno_treinamento: 'true',
-      possui_ensino_superior: 'false',
-      observacoes: '',
-      data_entrevista: '',
-      compareceu_entrevista: '',
-      aprovado_entrevista: '',
-      entrevista_em: '',
-      teste_realizado: '',
-      wpm: '',
-      precisao: '',
-      alerta_comportamental: '',
-      teste_em: '',
-      compliance: '',
-      data_exame: '',
-      compareceu_exame: '',
-      aprovado_exame: '',
-      enviou_documentacao: '',
-      aprovado_documentacao: '',
-      compareceu_onboarding: '',
-      compareceu_treinamento: '',
-      decisao_final: '',
-      contatado_whatsapp: '',
-      decisao_em: '',
-      compareceu_alo: '',
-      tempo_preenchimento_segundos: '',
-      rede_social: '',
-      documentacao_solicitada: '',
-      data_documentacao_solicitada: '',
-      data_envio_documentacao: '',
-      data_onboarding: '',
-      data_treinamento: '',
-      data_contato_whatsapp: '',
-      data_alo: '',
-      comentario_entrevistador1: '',
-    }
-    const csv = Papa.unparse([linhaExemplo])
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'modelo_importacao_candidatos.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // Campos que seguem o padrão "MAIÚSCULA + sem acento/pontuação" do sistema
-  const CAMPOS_NORMALIZAR_COMPLETO = ['nome_completo', 'nome_mae', 'nome_indicador', 'logradouro', 'bairro', 'cidade']
-  // Campos que só ficam em maiúsculas, mantendo acentuação/pontuação (texto livre)
-  const CAMPOS_NORMALIZAR_LEVE = ['observacoes', 'compliance', 'alerta_comportamental', 'complemento']
-
-  function importarCSV(e) {
-    const arquivo = e.target.files?.[0]
-    if (!arquivo) return
-    setImportando(true)
-    setResultadoImportacao(null)
-    Papa.parse(arquivo, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (resultado) => {
-        const linhas = resultado.data.map((linha) => {
-          const copia = { ...linha }
-          COLUNAS_GERADAS.forEach((col) => delete copia[col])
-          delete copia.id // o banco sempre gera um UUID novo na importação
-          // Campos vazios viram null em vez de string vazia; texto é
-          // normalizado pro mesmo padrão usado no cadastro pelo site.
-          Object.keys(copia).forEach((k) => {
-            if (copia[k] === '') {
-              copia[k] = null
-              return
-            }
-            if (typeof copia[k] !== 'string') return
-            if (CAMPOS_NORMALIZAR_COMPLETO.includes(k)) copia[k] = normalizarTexto(copia[k])
-            else if (CAMPOS_NORMALIZAR_LEVE.includes(k)) copia[k] = copia[k].toUpperCase()
-          })
-          return copia
-        })
-        const { error, count } = await supabase.from('candidatos').insert(linhas, { count: 'exact' })
-        setImportando(false)
-        if (inputArquivoRef.current) inputArquivoRef.current.value = ''
-        if (error) {
-          setResultadoImportacao({ ok: false, mensagem: error.message })
-        } else {
-          setResultadoImportacao({ ok: true, mensagem: `${count ?? linhas.length} candidato(s) importado(s) com sucesso.` })
-          carregar()
-        }
-      },
-      error: (err) => {
-        setImportando(false)
-        setResultadoImportacao({ ok: false, mensagem: err.message })
-      },
-    })
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="relative max-w-sm flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-400" />
-          <input
-            className="field-input pl-9"
-            placeholder="Buscar por nome ou CPF…"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          {selecionados.size > 0 && (
-            <button onClick={excluirSelecionados} className="btn-secondary text-clay-600 border-clay-500/30 hover:bg-clay-500/5 flex items-center gap-1.5">
-              <Trash2 size={15} /> Excluir {selecionados.size} selecionado(s)
-            </button>
-          )}
-          <button onClick={baixarModelo} className="btn-secondary flex items-center gap-1.5">
-            <FileDown size={15} /> Baixar modelo
-          </button>
-          <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
-            <Download size={15} /> Exportar CSV
-          </button>
-          <button
-            onClick={() => inputArquivoRef.current?.click()}
-            disabled={importando}
-            className="btn-secondary flex items-center gap-1.5"
-          >
-            <Upload size={15} /> {importando ? 'Importando…' : 'Importar CSV'}
-          </button>
-          <input ref={inputArquivoRef} type="file" accept=".csv" onChange={importarCSV} className="hidden" />
-        </div>
-      </div>
-
-      {resultadoImportacao && (
-        <p className={`text-sm mb-4 ${resultadoImportacao.ok ? 'text-sage-600' : 'text-clay-600'}`}>
-          {resultadoImportacao.mensagem}
-        </p>
-      )}
-
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-navy-100 dark:border-navy-800 text-left text-navy-400 text-xs uppercase tracking-wide">
-              <th className="px-4 py-3 w-8">
-                <input
-                  type="checkbox"
-                  checked={filtrados.length > 0 && selecionados.size === filtrados.length}
-                  onChange={alternarSelecionarTodos}
-                  className="rounded border-navy-200"
-                />
-              </th>
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">Cadastro</th>
-              <th className="px-4 py-3">Origem</th>
-              <th className="px-4 py-3">Etapa</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-navy-400">
-                  Carregando…
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              filtrados.map((c) => {
-                const etapa = etapaFunil(c)
-                return (
-                  <tr key={c.id} className="border-b border-navy-50 dark:border-navy-800/60 last:border-0 hover:bg-navy-50/50 dark:hover:bg-navy-800/40">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selecionados.has(c.id)}
-                        onChange={() => alternarSelecao(c.id)}
-                        className="rounded border-navy-200"
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-navy-900 dark:text-white">{c.nome_completo}</td>
-                    <td className="px-4 py-3 text-navy-500 dark:text-navy-400">{formatarData(c.data_entrevista)}</td>
-                    <td className="px-4 py-3 text-navy-500 dark:text-navy-400">{c.fonte}</td>
-                    <td className="px-4 py-3">
-                      <span className={`pill ${corEtapa(etapa)}`}>{etapa}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => setEditando(c)} className="text-navy-500 dark:text-navy-300 hover:text-navy-900 dark:hover:text-white text-xs font-medium">
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            {!loading && filtrados.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-navy-400">
-                  Nenhum candidato encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {editando && (
-        <EditorCandidato
-          candidato={editando}
-          onClose={() => setEditando(null)}
-          onSaved={() => {
-            setEditando(null)
-            carregar()
-          }}
-          podeExcluir
-        />
-      )}
-    </div>
   )
 }
 
@@ -569,9 +266,8 @@ function AbaAcessos() {
 const CAMPOS_LISTA = [
   { chave: 'fonte', label: 'Fonte' },
   { chave: 'sexo', label: 'Sexo' },
-  { chave: 'disponibilidade_horario_trabalho', label: 'Horário de trabalho' },
-  { chave: 'disponibilidade_horario_treinamento', label: 'Horário de treinamento' },
-  { chave: 'disponibilidade_jornada', label: 'Jornada de trabalho' },
+  { chave: 'produto', label: 'Produto' },
+  { chave: 'documento', label: 'Documentos' },
 ]
 
 function AbaListas() {
@@ -925,131 +621,6 @@ function AbaComentarios() {
   )
 }
 
-const ROTULO_ACAO = { INSERT: 'Criação', UPDATE: 'Alteração', DELETE: 'Exclusão' }
-const ROTULO_TABELA = { candidatos: 'Candidato', profiles: 'Acesso', opcoes_lista: 'Lista de opções' }
-
-function AbaLog() {
-  const [linhas, setLinhas] = useState([])
-  const [perfis, setPerfis] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [filtroTabela, setFiltroTabela] = useState('')
-
-  useEffect(() => {
-    async function carregar() {
-      setLoading(true)
-      const [{ data: logData }, { data: perfilData }] = await Promise.all([
-        supabase.from('log_alteracoes').select('*').order('criado_em', { ascending: false }).limit(300),
-        supabase.from('profiles').select('id, nome'),
-      ])
-      const mapaPerfis = {}
-      ;(perfilData || []).forEach((p) => (mapaPerfis[p.id] = p.nome))
-      setPerfis(mapaPerfis)
-      setLinhas(logData || [])
-      setLoading(false)
-    }
-    carregar()
-  }, [])
-
-  const filtradas = filtroTabela ? linhas.filter((l) => l.tabela === filtroTabela) : linhas
-
-  function nomeDoRegistro(l) {
-    const dados = l.dados_depois || l.dados_antes
-    return dados?.nome_completo || dados?.nome || dados?.valor || l.registro_id?.slice(0, 8)
-  }
-
-  function exportarCSV() {
-    const linhasCsv = filtradas.map((l) => ({
-      quando: new Date(l.criado_em).toLocaleString('pt-BR'),
-      quem: perfis[l.usuario_id] || 'Sistema',
-      acao: ROTULO_ACAO[l.acao],
-      tabela: ROTULO_TABELA[l.tabela] || l.tabela,
-      registro: nomeDoRegistro(l),
-      dados_antes: l.dados_antes ? JSON.stringify(l.dados_antes) : '',
-      dados_depois: l.dados_depois ? JSON.stringify(l.dados_depois) : '',
-    }))
-    const csv = Papa.unparse(linhasCsv)
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `log_alteracoes_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-        <div className="flex gap-1 bg-white dark:bg-navy-900 rounded-lg border border-navy-100 dark:border-navy-700 p-1 w-fit">
-          {[
-            ['', 'Tudo'],
-            ['candidatos', 'Candidatos'],
-            ['profiles', 'Acessos'],
-            ['opcoes_lista', 'Listas'],
-          ].map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => setFiltroTabela(v)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                filtroTabela === v ? 'bg-navy-700 text-white' : 'text-navy-600 dark:text-navy-300 hover:bg-navy-50 dark:hover:bg-navy-800'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
-          <Download size={15} /> Exportar CSV
-        </button>
-      </div>
-
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-navy-100 dark:border-navy-800 text-left text-navy-400 text-xs uppercase tracking-wide">
-              <th className="px-4 py-3">Quando</th>
-              <th className="px-4 py-3">Quem</th>
-              <th className="px-4 py-3">Ação</th>
-              <th className="px-4 py-3">Registro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-navy-400">
-                  Carregando…
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              filtradas.map((l) => (
-                <tr key={l.id} className="border-b border-navy-50 dark:border-navy-800/60 last:border-0">
-                  <td className="px-4 py-3 text-navy-500 dark:text-navy-400 whitespace-nowrap">
-                    {new Date(l.criado_em).toLocaleString('pt-BR')}
-                  </td>
-                  <td className="px-4 py-3 text-navy-700 dark:text-navy-200">{perfis[l.usuario_id] || 'Sistema'}</td>
-                  <td className="px-4 py-3">
-                    <span className="pill bg-navy-100 dark:bg-navy-800 text-navy-700 dark:text-navy-200">
-                      {ROTULO_ACAO[l.acao]} · {ROTULO_TABELA[l.tabela] || l.tabela}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-navy-600 dark:text-navy-300">{nomeDoRegistro(l)}</td>
-                </tr>
-              ))}
-            {!loading && filtradas.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-navy-400">
-                  Nenhum registro encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 const MESES_LABEL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function AbaMetas() {
@@ -1307,8 +878,14 @@ export default function Admin() {
           <TabButton active={aba === 'metas'} onClick={() => setAba('metas')}>
             Metas
           </TabButton>
+          <TabButton active={aba === 'campos'} onClick={() => setAba('campos')}>
+            Campos do formulário
+          </TabButton>
+          <TabButton active={aba === 'regra'} onClick={() => setAba('regra')}>
+            Regra do teste
+          </TabButton>
           <TabButton active={aba === 'formulario'} onClick={() => setAba('formulario')}>
-            Formulário
+            Capa do formulário
           </TabButton>
         </div>
 
@@ -1319,6 +896,8 @@ export default function Admin() {
         {aba === 'log' && <AbaLog />}
         {aba === 'metas' && <AbaMetas />}
         {aba === 'formulario' && <AbaFormulario />}
+        {aba === 'campos' && <AbaCamposFormulario />}
+        {aba === 'regra' && <AbaRegraTeste />}
       </div>
     </Layout>
   )
