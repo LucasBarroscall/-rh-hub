@@ -49,7 +49,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
     }
     setSalvando(true)
     // eslint-disable-next-line no-unused-vars
-    const { idade, updated_at, cpf_digitos, ...resto } = { ...form, ...montarPayload(form, { fontes, ocultos }) }
+    const { idade, updated_at, cpf_digitos, ...resto } = { ...form, ...montarPayload(form, { fontes, ocultos, customizados }) }
     resto.wpm = numeroOuNull(resto.wpm)
     resto.precisao = numeroOuNull(resto.precisao)
     // Recalcula o resultado do teste só se WPM/Precisão mudaram (a regra vigente

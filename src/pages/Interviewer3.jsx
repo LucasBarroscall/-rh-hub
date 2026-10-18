@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buscarTodos } from '../lib/buscarTodos'
 import Layout from '../components/Layout'
+import RespostasExtras from '../components/RespostasExtras'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -271,6 +272,7 @@ export default function Interviewer3() {
                 </div>
               )}
 
+              <RespostasExtras candidato={selecionado} />
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div>
                   <span className="text-navy-400">Entrevista: </span>

@@ -27,7 +27,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
       return
     }
     setSubmitting(true)
-    const { error: erroInsert } = await supabase.from('candidatos').insert(montarPayload(form, { fontes, ocultos }))
+    const { error: erroInsert } = await supabase.from('candidatos').insert(montarPayload(form, { fontes, ocultos, customizados }))
     setSubmitting(false)
     if (erroInsert) {
       if (erroInsert.message?.includes('CPF_DUPLICADO_HOJE')) {

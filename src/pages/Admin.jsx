@@ -440,6 +440,15 @@ function AbaListas() {
 }
 
 function AbaComentarios() {
+  const [extrasCampos, setExtrasCampos] = useState([])
+  useEffect(() => {
+    supabase
+      .from('campos_formulario')
+      .select('chave, rotulo')
+      .order('ordem', { ascending: true })
+      .then(({ data }) => setExtrasCampos((data || []).map((x) => [x.chave, `${x.rotulo} (personalizado)`])))
+  }, [])
+  const listaCampos = [...CAMPOS_COMENTAVEIS, ...extrasCampos]
   const CAMPOS_COMENTAVEIS = [
     ['fonte', 'Fonte'],
     ['rede_social', 'Rede social'],
@@ -550,7 +559,7 @@ function AbaComentarios() {
 
       <div className="grid lg:grid-cols-[240px_1fr] gap-5">
         <div className="card divide-y divide-navy-100 dark:divide-navy-800 max-h-[560px] overflow-y-auto">
-          {CAMPOS_COMENTAVEIS.map(([campo, label]) => (
+          {listaCampos.map(([campo, label]) => (
             <button
               key={campo}
               onClick={() => setCampoAtivo(campo)}
@@ -576,7 +585,7 @@ function AbaComentarios() {
                 <label className="field-label">Título do campo</label>
                 <input
                   className="field-input"
-                  placeholder={CAMPOS_COMENTAVEIS.find(([c]) => c === campoAtivo)?.[1]}
+                  placeholder={listaCampos.find(([c]) => c === campoAtivo)?.[1]}
                   value={rascunhoTitulo}
                   onChange={(e) => setRascunhoTitulo(e.target.value)}
                 />

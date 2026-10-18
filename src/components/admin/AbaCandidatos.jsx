@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { buscarTodos } from '../../lib/buscarTodos'
 import { formatarData, etapaFunil, corEtapa } from '../../lib/candidato'
 import { useRegrasTeste } from '../../lib/regrasTeste'
+import { useCamposFormulario } from '../../lib/useCamposFormulario'
 import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
 import EditorCandidato from '../EditorCandidato'
 
@@ -61,6 +62,7 @@ export default function AbaCandidatos() {
   const [resultado, setResultado] = useState(null)
   const inputArquivoRef = useRef(null)
   const { regras } = useRegrasTeste()
+  const { customizados } = useCamposFormulario()
 
   // A busca e os filtros valem para TODO o banco (não só para a página atual).
   const montarQuery = useCallback(
@@ -147,7 +149,7 @@ export default function AbaCandidatos() {
   }
 
   function baixarModelo() {
-    const linha = Object.fromEntries(COLUNAS_MODELO.map((c) => [c, EXEMPLO[c] ?? '']))
+    const linha = Object.fromEntries([...COLUNAS_MODELO, ...customizados.map((cf) => cf.rotulo)].map((c) => [c, EXEMPLO[c] ?? '']))
     baixarArquivo(Papa.unparse([linha]), 'modelo_importacao_candidatos.csv')
   }
 
@@ -163,7 +165,7 @@ export default function AbaCandidatos() {
         const validas = []
         const avisos = []
         res.data.forEach((linha, i) => {
-          const { linha: ok, aviso } = converterLinhaImportacao(linha, regras)
+          const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados)
           if (ok) validas.push(ok)
           else avisos.push(`Linha ${i + 2}: ${aviso}`)
         })

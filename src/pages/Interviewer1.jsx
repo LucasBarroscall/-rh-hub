@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import RespostasExtras from '../components/RespostasExtras'
 import { buscarTodos } from '../lib/buscarTodos'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
@@ -216,6 +217,7 @@ export default function Interviewer1() {
                 </div>
               </div>
 
+              <RespostasExtras candidato={selecionado} />
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div className="flex items-start gap-2">
                   <Phone size={15} className="text-navy-400 mt-0.5" />

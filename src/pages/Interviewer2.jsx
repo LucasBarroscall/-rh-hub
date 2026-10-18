@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import RespostasExtras from '../components/RespostasExtras'
 import { buscarTodos } from '../lib/buscarTodos'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -229,6 +230,8 @@ export default function Interviewer2() {
                   </button>
                 </div>
               </div>
+
+              <RespostasExtras candidato={selecionado} />
 
               {selecionado.comentario_entrevistador1 && (
                 <div className="flex items-start gap-2 rounded-lg bg-navy-50 dark:bg-navy-800 px-3.5 py-3 mb-6 text-sm">

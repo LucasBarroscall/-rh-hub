@@ -1,3 +1,4 @@
+import { estaVisivel, respostaVazia } from './camposPersonalizados'
 import { dataBRParaISO, isoParaDataBR, validarCPF, validarDataBR, normalizarTexto } from './formatters'
 
 export const OPCOES_TREINAMENTO = ['Manhã', 'Tarde', 'Total']
@@ -99,9 +100,9 @@ export function validarCadastro(form, { fontes = [], customizados = [], ocultos 
     if (!form.disponibilidade_horario_treinamento) return 'Selecione a disponibilidade para treinamento.'
     if (!form.disponibilidade_jornada) return 'Selecione a escala de trabalho.'
     for (const c of customizados) {
-      if (c.obrigatorio) {
+      if (c.obrigatorio && estaVisivel(c, customizados, form)) {
         const v = (form.respostas_extras || {})[c.chave]
-        if (v === undefined || v === null || v === '') return `Responda: ${c.rotulo}`
+        if (respostaVazia(v)) return `Responda: ${c.rotulo}`
       }
     }
   }
@@ -109,7 +110,7 @@ export function validarCadastro(form, { fontes = [], customizados = [], ocultos 
 }
 
 // Monta o objeto que vai para o banco (tudo normalizado/MAIÚSCULO).
-export function montarPayload(form, { fontes = [], ocultos = new Set() } = {}) {
+export function montarPayload(form, { fontes = [], ocultos = new Set(), customizados = [] } = {}) {
   const fonte = fontes.find((f) => f.valor === form.fonte)
   const p = { ...form }
   p.nome_completo = normalizarTexto(form.nome_completo)
@@ -129,6 +130,17 @@ export function montarPayload(form, { fontes = [], ocultos = new Set() } = {}) {
   ocultos.forEach((k) => {
     if (k in p) p[k] = null
   })
+  // Respostas de campos personalizados: só as dos campos visíveis (condicionais
+  // ocultos não são salvos); respostas de campos já excluídos continuam guardadas.
+  const extras = {}
+  Object.entries(form.respostas_extras || {}).forEach(([k, v]) => {
+    if (!customizados.some((c) => c.chave === k)) extras[k] = v
+  })
+  customizados.forEach((c) => {
+    const v = (form.respostas_extras || {})[c.chave]
+    if (estaVisivel(c, customizados, form) && !respostaVazia(v)) extras[c.chave] = v
+  })
+  p.respostas_extras = extras
   return p
 }
 

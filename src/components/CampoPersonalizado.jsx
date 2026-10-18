@@ -1,11 +1,18 @@
 import EscolhaUnica from './EscolhaUnica'
+import CheckboxGroup from './CheckboxGroup'
+import ComentarioCampo from './ComentarioCampo'
 
-// Renderiza um campo criado pelo analista (Administração → Campos do formulário).
-export default function CampoPersonalizado({ campo, valor, onChange }) {
-  const rotulo = campo.rotulo + (campo.obrigatorio ? ' *' : '')
+// Renderiza um campo criado pelo analista, com o mesmo comportamento dos
+// campos padrão: título editável, comentário com formatação e posição.
+export default function CampoPersonalizado({ campo, valor, onChange, titulo, comentario, posicao = 'depois' }) {
+  const rotulo = (titulo || campo.rotulo) + (campo.obrigatorio ? ' *' : '')
+  const opcoes = campo.opcoes || []
+
   if (campo.tipo === 'sim_nao') {
+    const bloco = comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
     return (
       <div>
+        {posicao === 'antes' && bloco}
         <span className="field-label">{rotulo}</span>
         <div className="flex gap-2">
           {['Sim', 'Não'].map((op) => (
@@ -23,21 +30,49 @@ export default function CampoPersonalizado({ campo, valor, onChange }) {
             </button>
           ))}
         </div>
+        {posicao !== 'antes' && bloco}
       </div>
     )
   }
   if (campo.tipo === 'selecao') {
-    return <EscolhaUnica label={rotulo} opcoes={campo.opcoes || []} valor={valor || ''} onChange={onChange} />
+    return <EscolhaUnica label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} />
+  }
+  if (campo.tipo === 'multipla') {
+    return <CheckboxGroup label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} />
+  }
+
+  let controle
+  if (campo.tipo === 'lista') {
+    controle = (
+      <select className="field-select" value={valor || ''} onChange={(e) => onChange(e.target.value)}>
+        <option value="" disabled>
+          Selecione
+        </option>
+        {opcoes.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    )
+  } else if (campo.tipo === 'texto_longo') {
+    controle = <textarea rows={3} className="field-input" placeholder={campo.placeholder || ''} value={valor ?? ''} onChange={(e) => onChange(e.target.value)} />
+  } else {
+    controle = (
+      <input
+        type={campo.tipo === 'numero' ? 'number' : campo.tipo === 'data' ? 'date' : 'text'}
+        className="field-input"
+        placeholder={campo.placeholder || ''}
+        value={valor ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    )
   }
   return (
     <div className="flex flex-col">
       <label className="field-label">{rotulo}</label>
-      <input
-        type={campo.tipo === 'numero' ? 'number' : campo.tipo === 'data' ? 'date' : 'text'}
-        className="field-input"
-        value={valor ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {controle}
+      <ComentarioCampo texto={comentario} posicao={posicao} />
     </div>
   )
 }

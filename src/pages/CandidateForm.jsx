@@ -39,7 +39,7 @@ export default function CandidateForm() {
 
     setSubmitting(true)
     const payload = {
-      ...montarPayload(form, { fontes, ocultos }),
+      ...montarPayload(form, { fontes, ocultos, customizados }),
       tempo_preenchimento_segundos: Math.round((Date.now() - inicioRef.current) / 1000),
     }
     const { error: erroInsert } = await supabase.from('candidatos').insert(payload)

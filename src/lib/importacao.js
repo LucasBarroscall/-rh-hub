@@ -59,7 +59,7 @@ function parseBool(texto) {
 // Converte uma linha do CSV para o formato do banco. Campos vazios ficam de
 // fora (null/padrão do banco); texto vira MAIÚSCULO; datas aceitam dd/mm/aaaa.
 // created_at vazio => o banco usa a data/hora da importação.
-export function converterLinhaImportacao(linha, regras = []) {
+export function converterLinhaImportacao(linha, regras = [], customizados = []) {
   const bruto = {}
   Object.keys(linha).forEach((k) => {
     bruto[String(k).trim().toLowerCase()] = linha[k]
@@ -101,6 +101,21 @@ export function converterLinhaImportacao(linha, regras = []) {
     else if (col === 'cep') out[col] = v.replace(/\D/g, '').length === 8 ? maskCEP(v) : v
     else out[col] = v
   })
+
+  // Colunas com o título (ou a chave) de um campo personalizado entram em respostas_extras.
+  const extras = {}
+  customizados.forEach((cf) => {
+    const bruto_v = bruto[String(cf.rotulo).trim().toLowerCase()] ?? bruto[cf.chave]
+    if (bruto_v == null || String(bruto_v).trim() === '') return
+    let v = String(bruto_v).trim()
+    if (cf.tipo === 'multipla') v = v.split(/[|;]/).map((s) => s.trim()).filter(Boolean).join(' | ')
+    else if (cf.tipo === 'sim_nao') {
+      const b = parseBool(v)
+      if (b !== null) v = b ? 'Sim' : 'Não'
+    }
+    extras[cf.chave] = v
+  })
+  if (Object.keys(extras).length) out.respostas_extras = extras
 
   if (!out.data_entrevista && out.created_at) {
     out.data_entrevista = new Date(out.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })

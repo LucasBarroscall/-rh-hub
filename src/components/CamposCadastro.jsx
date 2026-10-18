@@ -9,6 +9,7 @@ import ComentarioCampo from './ComentarioCampo'
 import { useComentariosCompleto } from '../lib/useComentarios'
 import { maskRG, maskCPF, maskTelefone, maskCEP, maskDataBR, normalizarTexto } from '../lib/formatters'
 import { VALIDACOES, OPCOES_TREINAMENTO, OPCOES_ESCALA } from '../lib/cadastro'
+import { estaVisivel } from '../lib/camposPersonalizados'
 
 const TITULO_SECAO = 'text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800'
 
@@ -353,14 +354,19 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             posicaoComentario={posicoes.concorda_turno_treinamento}
           />
         )}
-        {customizados.map((c) => (
-          <CampoPersonalizado
-            key={c.id}
-            campo={c}
-            valor={(form.respostas_extras || {})[c.chave]}
-            onChange={(v) => setForm((f) => ({ ...f, respostas_extras: { ...(f.respostas_extras || {}), [c.chave]: v } }))}
-          />
-        ))}
+        {customizados
+          .filter((c) => estaVisivel(c, customizados, form))
+          .map((c) => (
+            <CampoPersonalizado
+              key={c.id}
+              campo={c}
+              titulo={titulos[c.chave]}
+              comentario={comentarios[c.chave]}
+              posicao={posicoes[c.chave]}
+              valor={(form.respostas_extras || {})[c.chave]}
+              onChange={(v) => setForm((f) => ({ ...f, respostas_extras: { ...(f.respostas_extras || {}), [c.chave]: v } }))}
+            />
+          ))}
         {!ocultos.has('observacoes') &&
           campo(
             'observacoes',
