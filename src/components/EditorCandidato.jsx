@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { X, Trash2, Save } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
@@ -26,6 +27,7 @@ const numeroOuNull = (v) => (v === '' || v == null ? null : Math.round(Number(v)
 // Edição completa do candidato: mesmo front e mesmas validações do cadastro,
 // mais o status do funil. Só quem tem podeExcluir (analista) vê o botão de excluir.
 export default function EditorCandidato({ candidato, onClose, onSaved, podeExcluir = false }) {
+  useFecharComEsc(onClose)
   const [form, setForm] = useState(() => candidatoParaForm(candidato))
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -82,7 +84,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
+    <div {...aoClicarFora(onClose)} className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
       <div className="card-elevated w-full max-w-2xl max-h-[88vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Editar candidato</h2>

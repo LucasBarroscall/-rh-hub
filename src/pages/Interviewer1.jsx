@@ -1,3 +1,4 @@
+import { useFecharComEsc } from '../lib/useModal'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
@@ -23,6 +24,7 @@ const FILTROS_ETAPA = [
 export default function Interviewer1() {
   const [fila, setFila] = useState([])
   const [selecionado, setSelecionado] = useState(null)
+  useFecharComEsc(() => setSelecionado(null), { ativo: !!selecionado, prioridade: 1 })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
@@ -59,6 +61,14 @@ export default function Interviewer1() {
     setComentarioDraft(selecionado?.comentario_entrevistador1 || '')
   }, [selecionado?.id])
 
+  // Depois de concluir um candidato, abre o próximo da fila (respeitando busca e
+  // filtro). Se não sobrou ninguém, o painel fecha.
+  function proximoCandidato(idAtual) {
+    const i = filaFiltrada.findIndex((x) => x.id === idAtual)
+    const seguintes = [...filaFiltrada.slice(i + 1), ...filaFiltrada.slice(0, Math.max(i, 0))].filter((x) => x.id !== idAtual)
+    return seguintes[0] ?? null
+  }
+
   async function salvar(campos) {
     if (!selecionado) return
     setSalvando(true)
@@ -73,7 +83,7 @@ export default function Interviewer1() {
       // Se o candidato ficou com essa etapa completa e a fila só mostra
       // pendentes, ele vai sumir da lista — então já avançamos para o
       // próximo, em vez de deixar a tela travada nele.
-      setSelecionado(!mostrarTodos && etapa1Completa(data) ? null : data)
+      setSelecionado(!mostrarTodos && etapa1Completa(data) ? proximoCandidato(selecionado.id) : data)
       carregar()
     }
   }

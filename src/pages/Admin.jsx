@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
@@ -39,6 +40,7 @@ function TabButton({ active, onClick, children }) {
 const PERFIL_VAZIO = { id: '', nome: '', email: '', role: 'entrevistador1' }
 
 function NovoAcessoModal({ onClose, onSaved }) {
+  useFecharComEsc(onClose)
   const [form, setForm] = useState(PERFIL_VAZIO)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -61,7 +63,7 @@ function NovoAcessoModal({ onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
+    <div {...aoClicarFora(onClose)} className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
       <form onSubmit={salvar} className="card-elevated w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Adicionar acesso</h2>
@@ -448,7 +450,6 @@ function AbaComentarios() {
       .order('ordem', { ascending: true })
       .then(({ data }) => setExtrasCampos((data || []).map((x) => [x.chave, `${x.rotulo} (personalizado)`])))
   }, [])
-  const listaCampos = [...CAMPOS_COMENTAVEIS, ...extrasCampos]
   const CAMPOS_COMENTAVEIS = [
     ['fonte', 'Fonte'],
     ['rede_social', 'Rede social'],
@@ -486,6 +487,7 @@ function AbaComentarios() {
     ['compareceu_treinamento', 'Compareceu no treinamento? (Etapa 3)'],
     ['compareceu_alo', 'Alô realizado? (Etapa 3)'],
   ]
+  const listaCampos = [...CAMPOS_COMENTAVEIS, ...extrasCampos]
 
   const [comentarios, setComentarios] = useState({})
   const [titulos, setTitulos] = useState({})

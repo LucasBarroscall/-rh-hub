@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
@@ -9,6 +10,7 @@ import CamposCadastro from './CamposCadastro'
 import Toast from './Toast'
 
 export default function AddCandidateModal({ onClose, onSaved }) {
+  useFecharComEsc(onClose)
   const { opcoes, fontes } = useOpcoes()
   const { customizados, ocultos } = useCamposFormulario()
   const [form, setForm] = useState(CAMPOS_INICIAIS)
@@ -48,7 +50,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
+    <div {...aoClicarFora(onClose)} className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
       <div className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">Adicionar candidato</h2>

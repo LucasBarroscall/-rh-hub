@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../../lib/useModal'
 import { useEffect, useState, useCallback } from 'react'
 import { Trash2, ChevronUp, ChevronDown, Plus, ListPlus, Pencil, X, GitBranch } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
@@ -27,6 +28,7 @@ function dependeDe(c, alvoChave, lista, nivel = 0) {
 const comentarioVazio = (html) => !html || (!html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim() && !/<img/.test(html))
 
 function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
+  useFecharComEsc(aoFechar)
   const { opcoes: opcoesPadrao, fontes } = useOpcoes()
   const [f, setF] = useState({
     rotulo: campo?.rotulo || '',
@@ -134,7 +136,7 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
+    <div {...aoClicarFora(aoFechar)} className="fixed inset-0 bg-navy-950/40 flex items-center justify-center p-4 z-50">
       <div className="card-elevated w-full max-w-2xl max-h-[88vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white">{campo ? 'Editar campo' : 'Novo campo'}</h2>

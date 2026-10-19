@@ -1,8 +1,10 @@
+import { useFecharComEsc } from '../lib/useModal'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buscarTodos } from '../lib/buscarTodos'
 import Layout from '../components/Layout'
 import RespostasExtras from '../components/RespostasExtras'
+import BotaoCopiar from '../components/BotaoCopiar'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -59,6 +61,7 @@ function BadgeDocs({ resumo }) {
 export default function Interviewer3() {
   const [fila, setFila] = useState([])
   const [selecionado, setSelecionado] = useState(null)
+  useFecharComEsc(() => setSelecionado(null), { ativo: !!selecionado, prioridade: 1 })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
@@ -228,7 +231,11 @@ export default function Interviewer3() {
                       <BadgeDocs resumo={resumoSel} />
                     </h2>
                     <p className="text-sm text-navy-500 dark:text-navy-400">
-                      {selecionado.telefone} · {selecionado.email}
+                      <span className="inline-flex items-center gap-1">
+                        {selecionado.telefone}
+                        <BotaoCopiar texto={selecionado.telefone} />
+                      </span>{' '}
+                      · {selecionado.email}
                     </p>
                   </div>
                 </div>

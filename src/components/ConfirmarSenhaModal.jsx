@@ -1,9 +1,11 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { X, Lock } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function ConfirmarSenhaModal({ onClose, onConfirmado }) {
+  useFecharComEsc(onClose)
   const { user } = useAuth()
   const [senha, setSenha] = useState('')
   const [verificando, setVerificando] = useState(false)
@@ -23,7 +25,7 @@ export default function ConfirmarSenhaModal({ onClose, onConfirmado }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[70]">
+    <div {...aoClicarFora(onClose)} className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[70]">
       <form onSubmit={confirmar} className="card-elevated w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-2">

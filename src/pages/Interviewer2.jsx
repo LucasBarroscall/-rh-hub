@@ -1,3 +1,4 @@
+import { useFecharComEsc } from '../lib/useModal'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
@@ -16,15 +17,22 @@ import { Keyboard, AlertTriangle, CheckCircle2, XCircle, X, Undo2, Filter, Messa
 
 const FILTROS_ETAPA = [
   { id: '', label: 'Todos' },
-  { id: 'Entrevista', label: 'Aprovado na entrevista (aguardando teste)' },
-  { id: 'Reprovado na entrevista', label: 'Reprovado na entrevista (faz o teste mesmo assim)' },
-  { id: 'Teste de Digitação', label: 'Testado (aguardando próxima etapa)' },
-  { id: 'Reprovado no teste', label: 'Reprovado no teste' },
+  { id: 'pendente', label: 'Aguardando teste' },
+  { id: 'testado', label: 'Testados (aguardando próxima etapa)' },
+  { id: 'reprovado_teste', label: 'Reprovados no teste' },
 ]
+
+function passaFiltro(c, id) {
+  if (id === 'pendente') return c.teste_realizado == null
+  if (id === 'testado') return c.teste_realizado === true && c.aprovado_teste !== false
+  if (id === 'reprovado_teste') return c.aprovado_teste === false
+  return true
+}
 
 export default function Interviewer2() {
   const [fila, setFila] = useState([])
   const [selecionado, setSelecionado] = useState(null)
+  useFecharComEsc(() => setSelecionado(null), { ativo: !!selecionado, prioridade: 1 })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
@@ -71,6 +79,14 @@ export default function Interviewer2() {
     setResultadoVisivel(false)
   }, [selecionado?.id])
 
+  // Depois de concluir um candidato, abre o próximo da fila (respeitando busca e
+  // filtro). Se não sobrou ninguém, o painel fecha.
+  function proximoCandidato(idAtual) {
+    const i = filaFiltrada.findIndex((x) => x.id === idAtual)
+    const seguintes = [...filaFiltrada.slice(i + 1), ...filaFiltrada.slice(0, Math.max(i, 0))].filter((x) => x.id !== idAtual)
+    return seguintes[0] ?? null
+  }
+
   async function atualizar(campos, { avancar = true } = {}) {
     if (!selecionado) return
     setSalvando(true)
@@ -82,7 +98,7 @@ export default function Interviewer2() {
       .single()
     setSalvando(false)
     if (!error) {
-      setSelecionado(avancar && !mostrarTodos && etapa2Completa(data) ? null : data)
+      setSelecionado(avancar && !mostrarTodos && etapa2Completa(data) ? proximoCandidato(selecionado.id) : data)
       carregar()
     }
   }
@@ -123,7 +139,7 @@ export default function Interviewer2() {
   const filaFiltrada = useMemo(() => {
     let f = fila
     if (filtroEtapa) {
-      f = f.filter((c) => statusAtual(c) === filtroEtapa)
+      f = f.filter((c) => passaFiltro(c, filtroEtapa))
     }
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
@@ -218,7 +234,7 @@ export default function Interviewer2() {
                       {selecionado.nome_completo}
                       {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
                     </h2>
-                    <p className="text-sm text-navy-500 dark:text-navy-400">{selecionado.aprovado_entrevista === false ? 'Reprovado(a) na entrevista — faz o teste normalmente' : selecionado.aprovado_entrevista === true ? 'Aprovado(a) na entrevista' : 'Entrevista realizada'}</p>
+                    <p className="text-sm text-navy-500 dark:text-navy-400">{resultadoVisivel ? (selecionado.aprovado_entrevista === false ? 'Reprovado(a) na entrevista — faz o teste normalmente' : selecionado.aprovado_entrevista === true ? 'Aprovado(a) na entrevista' : 'Entrevista realizada') : 'Entrevista realizada'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">

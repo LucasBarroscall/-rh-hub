@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { X, FileText } from 'lucide-react'
 import { resumoDocumentos } from '../lib/documentos'
@@ -9,6 +10,7 @@ const ESTADOS = [
 ]
 
 export default function DocumentosModal({ candidato, lista, onClose, onSalvar, salvando }) {
+  useFecharComEsc(onClose)
   const [docs, setDocs] = useState({ ...(candidato.documentos || {}) })
 
   function definir(nome, estado) {
@@ -23,7 +25,7 @@ export default function DocumentosModal({ candidato, lista, onClose, onSalvar, s
   const resumo = resumoDocumentos({ documentos: docs }, lista)
 
   return (
-    <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[60]">
+    <div {...aoClicarFora(onClose)} className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[60]">
       <div className="card-elevated w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-2">

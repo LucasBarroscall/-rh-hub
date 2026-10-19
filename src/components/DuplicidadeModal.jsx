@@ -1,3 +1,4 @@
+import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
@@ -34,6 +35,7 @@ function resultadoResumo(d) {
 }
 
 export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar, onRepetido }) {
+  useFecharComEsc(onFechar)
   const [aplicandoId, setAplicandoId] = useState(null)
 
   async function repetirResultado(origem) {
@@ -48,7 +50,7 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[70]">
+    <div {...aoClicarFora(onFechar)} className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-[70]">
       <div className="card-elevated w-full max-w-lg p-6">
         <div className="flex items-start gap-3 mb-4">
           <div className="h-10 w-10 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0">

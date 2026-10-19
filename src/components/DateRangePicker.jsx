@@ -1,3 +1,4 @@
+import { useFecharComEsc } from '../lib/useModal'
 import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, CalendarRange, X } from 'lucide-react'
 
@@ -33,6 +34,7 @@ function formatarCurto(d) {
 
 export default function DateRangePicker({ inicio, fim, onChange }) {
   const [aberto, setAberto] = useState(false)
+  useFecharComEsc(() => setAberto(false), { ativo: aberto })
   const [mesExibido, setMesExibido] = useState(() => inicio || new Date())
   const [escolhendoFim, setEscolhendoFim] = useState(false)
   const ref = useRef(null)
