@@ -3,12 +3,17 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import RespostasExtras from '../components/RespostasExtras'
+import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
+import AvisoRepeticao from '../components/AvisoRepeticao'
+import FiltroResultado from '../components/FiltroResultado'
+import { opcoesResultado } from '../lib/resultados'
 import { buscarTodos } from '../lib/buscarTodos'
 import BoolToggle from '../components/BoolToggle'
 import AddCandidateModal from '../components/AddCandidateModal'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
 import { useDuplicidade } from '../lib/useDuplicidade'
+import { useRegrasTeste } from '../lib/regrasTeste'
 import { useComentarios } from '../lib/useComentarios'
 import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa, formatarDisponibilidadeExibicao } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
@@ -31,10 +36,12 @@ export default function Interviewer1() {
   const [mostrarAdicionar, setMostrarAdicionar] = useState(false)
   const [mostrarEditor, setMostrarEditor] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
   const [busca, setBusca] = useState('')
   const [comentarioDraft, setComentarioDraft] = useState('')
-  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar, reabrirOpcoes } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
+  const { regras } = useRegrasTeste()
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -48,7 +55,7 @@ export default function Interviewer1() {
     const { data, error } = await buscarTodos(query.order('id'))
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
+      setSelecionado((sel) => (sel ? data.find((c) => c.id === sel.id) ?? null : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -116,6 +123,7 @@ export default function Interviewer1() {
     if (filtroEtapa) {
       f = f.filter((c) => statusAtual(c) === filtroEtapa)
     }
+    if (filtroResultado) f = f.filter((c) => (c.resultado_final || 'Pendente') === filtroResultado)
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
       const digitos = busca.replace(/\D/g, '')
@@ -124,7 +132,7 @@ export default function Interviewer1() {
       )
     }
     return f
-  }, [fila, filtroEtapa, busca])
+  }, [fila, filtroEtapa, busca, filtroResultado])
 
   return (
     <Layout>
@@ -167,6 +175,7 @@ export default function Interviewer1() {
                 </option>
               ))}
             </select>
+            <FiltroResultado valor={filtroResultado} onChange={setFiltroResultado} opcoes={opcoesResultado(fila, regras)} />
           </div>
           <button onClick={() => setMostrarAdicionar(true)} className="btn-primary flex items-center gap-1.5">
             <UserPlus size={16} /> Adicionar candidato
@@ -227,6 +236,7 @@ export default function Interviewer1() {
                 </div>
               </div>
 
+              <AlertaReprovacaoAnterior duplicatas={duplicatas} />
               <RespostasExtras candidato={selecionado} />
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div className="flex items-start gap-2">
@@ -338,6 +348,7 @@ export default function Interviewer1() {
           />
         )}
 
+        {selecionado && <AvisoRepeticao candidato={selecionado} duplicatas={duplicatas} onReabrir={reabrirOpcoes} />}
         {mostrarDuplicidade && (
           <DuplicidadeModal
             candidatoAtual={selecionado}

@@ -31,6 +31,7 @@ function resultadoResumo(d) {
     partes.push(`Teste: ${d.aprovado_teste ? 'aprovado' : 'reprovado'} (WPM ${d.wpm ?? '—'}, ${d.precisao ?? '—'}%)`)
   }
   if (d.decisao_final) partes.push(`Decisão final: ${d.decisao_final}`)
+  if (d.resultado_final) partes.push(`Resultado final: ${d.resultado_final}`)
   return partes.join(' · ')
 }
 
@@ -44,6 +45,23 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
     CAMPOS_REPETIVEIS.forEach((c) => {
       campos[c] = origem[c] ?? null
     })
+    campos.resultado_repetido_de = origem.id
+    campos.resultado_repetido_em = new Date().toISOString()
+    const { error } = await supabase.from('candidatos').update(campos).eq('id', candidatoAtual.id)
+    setAplicandoId(null)
+    if (!error) onRepetido()
+  }
+
+  // "Mudar de ideia": limpa o resultado repetido (volta a avaliar o candidato do zero).
+  async function desfazerRepeticao() {
+    if (!confirm('Desfazer o resultado repetido? Os campos de etapas copiados do cadastro anterior serão limpos.')) return
+    setAplicandoId('desfazer')
+    const campos = {}
+    CAMPOS_REPETIVEIS.forEach((c) => {
+      campos[c] = c === 'documentos' ? {} : null
+    })
+    campos.resultado_repetido_de = null
+    campos.resultado_repetido_em = null
     const { error } = await supabase.from('candidatos').update(campos).eq('id', candidatoAtual.id)
     setAplicandoId(null)
     if (!error) onRepetido()
@@ -66,6 +84,11 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
           </div>
         </div>
 
+        {candidatoAtual.resultado_repetido_de && (
+          <p className="text-xs rounded-md bg-amber-400/15 text-amber-700 dark:text-amber-300 px-3 py-2 mb-3">
+            O resultado deste candidato já foi repetido de um cadastro anterior. Escolha outro cadastro para repetir, desfaça, ou feche para manter.
+          </p>
+        )}
         <div className="space-y-2.5 max-h-72 overflow-y-auto mb-5">
           {duplicatas.map((d) => (
             <button
@@ -89,7 +112,12 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
           ))}
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          {candidatoAtual.resultado_repetido_de && (
+            <button onClick={desfazerRepeticao} disabled={aplicandoId !== null} className="btn-secondary text-clay-600 border-clay-500/30">
+              Desfazer resultado repetido
+            </button>
+          )}
           <button onClick={onFechar} className="btn-secondary">
             Seguir com o processo normalmente
           </button>

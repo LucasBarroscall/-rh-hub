@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Trash2, ChevronUp, ChevronDown, Plus, Keyboard } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { avaliarTeste } from '../../lib/regrasTeste'
+import ReprocessarTestes from './ReprocessarTestes'
 
 const num = (v) => (v === '' || v == null ? null : Math.round(Number(v)))
 
@@ -201,6 +202,8 @@ export default function AbaRegraTeste() {
           )}
         </div>
       </div>
+
+      <ReprocessarTestes regras={regras} />
     </div>
   )
 }

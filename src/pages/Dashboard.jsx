@@ -27,6 +27,7 @@ import { etapaFunil, faixaEtariaDe } from '../lib/candidato'
 import { useAuth } from '../contexts/AuthContext'
 import { buscarTodos } from '../lib/buscarTodos'
 import { aprovadoFinal, decididoFinal } from '../lib/status'
+import { estiloResultado } from '../lib/resultados'
 import { ETAPAS_FUNIL, MARCOS_FUNIL, formatarNumero, formatarDuracaoCurta, formatarDuracaoLonga } from '../lib/status'
 
 const CORES = ['#2f4c73', '#D4D943', '#30cff2', '#a64170', '#2a438c', '#7c93b8']
@@ -55,6 +56,7 @@ const CAMPOS_FILTRO = [
   { chave: 'faixaEtaria', label: 'Faixa etária' },
   { chave: 'etapa', label: 'Etapa do funil' },
   { chave: 'produto', label: 'Produto' },
+  { chave: 'resultado', label: 'Resultado final' },
 ]
 
 function inicioPeriodo(id) {
@@ -110,7 +112,7 @@ function ChartCard({ title, children, onClear, cleared }) {
   )
 }
 
-const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, bairro: null, etapa: null, faixaEtaria: null, produto: null, entrevistador: null }
+const FILTROS_VAZIOS = { fonte: null, sexo: null, cidade: null, bairro: null, etapa: null, faixaEtaria: null, produto: null, entrevistador: null, resultado: null }
 
 export default function Dashboard() {
   const [dados, setDados] = useState([])
@@ -171,6 +173,7 @@ export default function Dashboard() {
       if (filtros.faixaEtaria && faixaEtariaDe(c.idade) !== filtros.faixaEtaria) return false
       if (filtros.etapa && etapaFunil(c) !== filtros.etapa) return false
       if (filtros.produto && c.produto !== filtros.produto) return false
+      if (filtros.resultado && (c.resultado_final || 'Pendente') !== filtros.resultado) return false
       if (filtros.entrevistador && ![c.entrevistador1_id, c.entrevistador2_id, c.entrevistador3_id].includes(filtros.entrevistador)) return false
       return true
     })
@@ -181,13 +184,14 @@ export default function Dashboard() {
   }
 
   const opcoesPorCampo = useMemo(() => {
-    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), bairro: new Set(), etapa: new Set(), produto: new Set() }
+    const conj = { fonte: new Set(), sexo: new Set(), cidade: new Set(), bairro: new Set(), etapa: new Set(), produto: new Set(), resultado: new Set() }
     base.forEach((c) => {
       if (c.fonte) conj.fonte.add(c.fonte)
       if (c.sexo) conj.sexo.add(c.sexo)
       if (c.cidade) conj.cidade.add(c.cidade)
       if (c.bairro) conj.bairro.add(c.bairro)
       if (c.produto) conj.produto.add(c.produto)
+      conj.resultado.add(c.resultado_final || 'Pendente')
       conj.etapa.add(etapaFunil(c))
     })
     return {
@@ -196,6 +200,7 @@ export default function Dashboard() {
       cidade: [...conj.cidade].sort(),
       bairro: [...conj.bairro].sort(),
       produto: [...conj.produto].sort(),
+      resultado: [...conj.resultado].sort(),
       etapa: [...conj.etapa].sort(),
       faixaEtaria: FAIXAS_ETARIAS,
     }
@@ -327,6 +332,17 @@ export default function Dashboard() {
       d3: `${m.e3[0]}/${m.e3[1]}`,
     }))
   }, [filtrados, nomesPerfis])
+
+  const porResultadoFinal = useMemo(() => {
+    const mapa = {}
+    filtrados.forEach((c) => {
+      const r = c.resultado_final || 'Pendente'
+      mapa[r] = (mapa[r] || 0) + 1
+    })
+    return Object.entries(mapa)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [filtrados])
 
   const porResultadoTeste = useMemo(() => {
     const mapa = {}
@@ -1048,6 +1064,22 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+
+            <ChartCard title="Resultado final (entrevista + teste) — clique para filtrar" onClear={() => setFiltros((f) => ({ ...f, resultado: null }))} cleared={!filtros.resultado}>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={porResultadoFinal} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="none" horizontal={false} stroke="#EEF1F8" />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: '#8497BB' }} stroke="#DFE6F1" tickLine={false} axisLine={false} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} cursor="pointer" onClick={(e) => alternarFiltro('resultado', e.name)}>
+                    {porResultadoFinal.map((e) => (
+                      <Cell key={e.name} fill={filtros.resultado && filtros.resultado !== e.name ? '#D8DFF0' : estiloResultado(e.name)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
 
             {porResultadoTeste.length > 0 && (
               <ChartCard title="Resultado do teste de digitação (por tipo de atendimento)">

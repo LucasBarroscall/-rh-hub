@@ -3,6 +3,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import RespostasExtras from '../components/RespostasExtras'
+import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
+import AvisoRepeticao from '../components/AvisoRepeticao'
+import FiltroResultado from '../components/FiltroResultado'
+import { opcoesResultado } from '../lib/resultados'
 import { buscarTodos } from '../lib/buscarTodos'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -37,6 +41,7 @@ export default function Interviewer2() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
   const [mostrarEditor, setMostrarEditor] = useState(false)
   const [resultadoVisivel, setResultadoVisivel] = useState(false)
   const [mostrarSenhaModal, setMostrarSenhaModal] = useState(false)
@@ -45,7 +50,7 @@ export default function Interviewer2() {
   const [wpm, setWpm] = useState('')
   const [precisao, setPrecisao] = useState('')
   const [alerta, setAlerta] = useState('')
-  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar, reabrirOpcoes } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
   const { regras } = useRegrasTeste()
 
@@ -60,7 +65,7 @@ export default function Interviewer2() {
     const { data, error } = await buscarTodos(query.order('id'))
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
+      setSelecionado((sel) => (sel ? data.find((c) => c.id === sel.id) ?? null : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -141,6 +146,7 @@ export default function Interviewer2() {
     if (filtroEtapa) {
       f = f.filter((c) => passaFiltro(c, filtroEtapa))
     }
+    if (filtroResultado) f = f.filter((c) => (c.resultado_final || 'Pendente') === filtroResultado)
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
       const digitos = busca.replace(/\D/g, '')
@@ -149,7 +155,7 @@ export default function Interviewer2() {
       )
     }
     return f
-  }, [fila, filtroEtapa, busca])
+  }, [fila, filtroEtapa, busca, filtroResultado])
 
   return (
     <Layout>
@@ -200,6 +206,7 @@ export default function Interviewer2() {
               </option>
             ))}
           </select>
+            <FiltroResultado valor={filtroResultado} onChange={setFiltroResultado} opcoes={opcoesResultado(fila, regras)} />
         </div>
 
         <div className="grid lg:grid-cols-[320px_1fr] gap-6">
@@ -247,6 +254,7 @@ export default function Interviewer2() {
                 </div>
               </div>
 
+              <AlertaReprovacaoAnterior duplicatas={duplicatas} />
               <RespostasExtras candidato={selecionado} />
 
               {selecionado.comentario_entrevistador1 && (
@@ -285,6 +293,7 @@ export default function Interviewer2() {
                       <>
                         Resultado salvo: WPM {selecionado.wpm}, Precisão {selecionado.precisao}% —{' '}
                         {selecionado.resultado_teste || (selecionado.aprovado_teste ? 'aprovado' : 'reprovado')}
+                        {selecionado.aprovado_entrevista === false ? ' · resultado final: Reprovado(a) (reprovado na entrevista — resultado do teste mantido)' : selecionado.resultado_final ? ` · resultado final: ${selecionado.resultado_final}` : ''}
                       </>
                     ) : (
                       <span className="flex items-center gap-1.5">
@@ -378,6 +387,7 @@ export default function Interviewer2() {
           )}
         </div>
 
+        {selecionado && <AvisoRepeticao candidato={selecionado} duplicatas={duplicatas} onReabrir={reabrirOpcoes} />}
         {mostrarDuplicidade && (
           <DuplicidadeModal
             candidatoAtual={selecionado}

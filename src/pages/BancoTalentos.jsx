@@ -10,6 +10,10 @@ import { formatarData, etapaFunil, corEtapa, simNaoOuVazio } from '../lib/candid
 import { resumoDocumentos } from '../lib/documentos'
 import Layout from '../components/Layout'
 import EditorCandidato from '../components/EditorCandidato'
+import ChipResultado from '../components/ChipResultado'
+import FiltroResultado from '../components/FiltroResultado'
+import { opcoesResultado } from '../lib/resultados'
+import { useRegrasTeste } from '../lib/regrasTeste'
 
 const PALETA = ['#2f4c73', '#30cff2', '#D4D943', '#a64170', '#5C8A6E', '#2a438c', '#C1594B', '#7c93b8']
 function corDe(texto) {
@@ -38,6 +42,8 @@ export default function BancoTalentos() {
   const [busca, setBusca] = useState('')
   const [filtroProduto, setFiltroProduto] = useState('')
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
+  const { regras } = useRegrasTeste()
   const [pagina, setPagina] = useState(0)
   const [editando, setEditando] = useState(null)
   const listaDocs = opcoes.documento || []
@@ -61,6 +67,7 @@ export default function BancoTalentos() {
     return dados.filter((c) => {
       if (filtroProduto && c.produto !== filtroProduto) return false
       if (filtroEtapa && etapaFunil(c) !== filtroEtapa) return false
+      if (filtroResultado && (c.resultado_final || 'Pendente') !== filtroResultado) return false
       if (!termo) return true
       return (
         c.nome_completo?.toLowerCase().includes(termo) ||
@@ -69,11 +76,11 @@ export default function BancoTalentos() {
         (digitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(digitos))
       )
     })
-  }, [dados, busca, filtroProduto, filtroEtapa])
+  }, [dados, busca, filtroProduto, filtroEtapa, filtroResultado])
 
   useEffect(() => {
     setPagina(0)
-  }, [busca, filtroProduto, filtroEtapa])
+  }, [busca, filtroProduto, filtroEtapa, filtroResultado])
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / LINHAS_POR_PAGINA))
   const visiveis = filtrados.slice(pagina * LINHAS_POR_PAGINA, (pagina + 1) * LINHAS_POR_PAGINA)
@@ -120,6 +127,7 @@ export default function BancoTalentos() {
         </div>
       </div>
     ) : <span className="text-navy-300">—</span>)],
+    ['Resultado final', (c) => <ChipResultado resultado={c.resultado_final} />],
     ['Compliance', (c) => <Chip cor={c.compliance === 'Aprovado' ? '#5C8A6E' : c.compliance === 'Reprovado' ? '#C1594B' : '#D4A017'}>{c.compliance}</Chip>],
     ['Documentos', (c) => {
       const r = resumoDocumentos(c, listaDocs)
@@ -183,6 +191,7 @@ export default function BancoTalentos() {
               </option>
             ))}
           </select>
+          <FiltroResultado valor={filtroResultado} onChange={setFiltroResultado} opcoes={opcoesResultado(dados, regras)} className="text-sm" />
         </div>
 
         <div className="card overflow-x-auto">

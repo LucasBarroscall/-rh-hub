@@ -8,6 +8,9 @@ import { useRegrasTeste } from '../../lib/regrasTeste'
 import { useCamposFormulario } from '../../lib/useCamposFormulario'
 import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
 import EditorCandidato from '../EditorCandidato'
+import ChipResultado from '../ChipResultado'
+import FiltroResultado from '../FiltroResultado'
+import { opcoesResultado } from '../../lib/resultados'
 
 const EXEMPLO = {
   fonte: 'Indicação',
@@ -56,6 +59,7 @@ export default function AbaCandidatos() {
   const [buscaAplicada, setBuscaAplicada] = useState('')
   const [de, setDe] = useState('')
   const [ate, setAte] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
   const [selecionados, setSelecionados] = useState(new Set())
   const [editando, setEditando] = useState(null)
   const [importando, setImportando] = useState(false)
@@ -81,9 +85,10 @@ export default function AbaCandidatos() {
       }
       if (de) q = q.gte('created_at', `${de}T00:00:00-03:00`)
       if (ate) q = q.lte('created_at', `${ate}T23:59:59.999-03:00`)
+      if (filtroResultado) q = filtroResultado === 'Pendente' ? q.is('resultado_final', null) : q.eq('resultado_final', filtroResultado)
       return q
     },
-    [buscaAplicada, de, ate],
+    [buscaAplicada, de, ate, filtroResultado],
   )
 
   const carregar = useCallback(async () => {
@@ -204,6 +209,10 @@ export default function AbaCandidatos() {
           <label className="field-label">até</label>
           <input type="date" className="field-input py-1.5" value={ate} onChange={(e) => { setAte(e.target.value); setPagina(0) }} />
         </div>
+        <div>
+          <label className="field-label">Resultado final</label>
+          <FiltroResultado valor={filtroResultado} onChange={(v) => { setFiltroResultado(v); setPagina(0) }} opcoes={opcoesResultado([], regras)} className="py-2 text-sm" />
+        </div>
         <div className="flex gap-2 flex-wrap ml-auto">
           <button onClick={baixarModelo} className="btn-secondary flex items-center gap-1.5">
             <FileDown size={15} /> Baixar modelo
@@ -243,18 +252,19 @@ export default function AbaCandidatos() {
               <th className="px-4 py-3">Cidade</th>
               <th className="px-4 py-3">Cadastro</th>
               <th className="px-4 py-3">Etapa</th>
+              <th className="px-4 py-3">Resultado final</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-navy-100 dark:divide-navy-800">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-navy-400">Carregando…</td>
+                <td colSpan={8} className="px-4 py-6 text-navy-400">Carregando…</td>
               </tr>
             )}
             {!loading && linhas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-navy-400">Nenhum candidato encontrado.</td>
+                <td colSpan={8} className="px-4 py-6 text-navy-400">Nenhum candidato encontrado.</td>
               </tr>
             )}
             {!loading &&
@@ -271,6 +281,9 @@ export default function AbaCandidatos() {
                     <td className="px-4 py-3 text-navy-500 dark:text-navy-300">{formatarData(c.created_at)}</td>
                     <td className="px-4 py-3">
                       <span className={`pill ${corEtapa(etapa)}`}>{etapa}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <ChipResultado resultado={c.resultado_final} />
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => setEditando(c)} className="text-xs text-navy-500 hover:text-navy-900 dark:hover:text-white underline">

@@ -4,12 +4,18 @@ import { supabase } from '../lib/supabaseClient'
 import { buscarTodos } from '../lib/buscarTodos'
 import Layout from '../components/Layout'
 import RespostasExtras from '../components/RespostasExtras'
+import ChipResultado from '../components/ChipResultado'
+import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
+import AvisoRepeticao from '../components/AvisoRepeticao'
+import FiltroResultado from '../components/FiltroResultado'
+import { opcoesResultado } from '../lib/resultados'
 import BotaoCopiar from '../components/BotaoCopiar'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
 import DocumentosModal from '../components/DocumentosModal'
 import { useDuplicidade } from '../lib/useDuplicidade'
+import { useRegrasTeste } from '../lib/regrasTeste'
 import { useComentarios } from '../lib/useComentarios'
 import { useOpcoes } from '../lib/useOpcoes'
 import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
@@ -66,12 +72,14 @@ export default function Interviewer3() {
   const [salvando, setSalvando] = useState(false)
   const [mostrarTodos, setMostrarTodos] = useState(false)
   const [filtroEtapa, setFiltroEtapa] = useState('')
+  const [filtroResultado, setFiltroResultado] = useState('')
   const [busca, setBusca] = useState('')
   const [mostrarEditor, setMostrarEditor] = useState(false)
   const [mostrarDocs, setMostrarDocs] = useState(false)
   const [dataExame, setDataExame] = useState('')
-  const { duplicatas, mostrar: mostrarDuplicidade, dispensar } = useDuplicidade(selecionado)
+  const { duplicatas, mostrar: mostrarDuplicidade, dispensar, reabrirOpcoes } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
+  const { regras } = useRegrasTeste()
   const { opcoes } = useOpcoes()
   const listaDocs = opcoes.documento || []
 
@@ -90,7 +98,7 @@ export default function Interviewer3() {
     const { data, error } = await buscarTodos(query.order('id'))
     if (!error) {
       setFila(data)
-      setSelecionado((sel) => (sel && data.some((c) => c.id === sel.id) ? sel : null))
+      setSelecionado((sel) => (sel ? data.find((c) => c.id === sel.id) ?? null : null))
     }
     setLoading(false)
   }, [mostrarTodos])
@@ -146,13 +154,14 @@ export default function Interviewer3() {
   const filaFiltrada = useMemo(() => {
     let f = fila
     if (filtroEtapa) f = f.filter((c) => statusAtual(c) === filtroEtapa)
+    if (filtroResultado) f = f.filter((c) => (c.resultado_final || 'Pendente') === filtroResultado)
     if (busca.trim()) {
       const termo = busca.toLowerCase().trim()
       const digitos = busca.replace(/\D/g, '')
       f = f.filter((c) => c.nome_completo?.toLowerCase().includes(termo) || (digitos.length >= 3 && c.cpf?.replace(/\D/g, '').includes(digitos)))
     }
     return f
-  }, [fila, filtroEtapa, busca])
+  }, [fila, filtroEtapa, busca, filtroResultado])
 
   const resumoSel = selecionado ? resumoDocumentos(selecionado, listaDocs) : null
 
@@ -180,6 +189,7 @@ export default function Interviewer3() {
               </option>
             ))}
           </select>
+          <FiltroResultado valor={filtroResultado} onChange={setFiltroResultado} opcoes={opcoesResultado(fila, regras)} />
         </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
@@ -279,6 +289,7 @@ export default function Interviewer3() {
                 </div>
               )}
 
+              <AlertaReprovacaoAnterior duplicatas={duplicatas} />
               <RespostasExtras candidato={selecionado} />
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div>
@@ -290,6 +301,10 @@ export default function Interviewer3() {
                   <span className="font-medium text-sage-600">
                     {selecionado.resultado_teste || 'Aprovado'} (WPM {selecionado.wpm}, {selecionado.precisao}%)
                   </span>
+                </div>
+                <div>
+                  <span className="text-navy-400">Resultado final: </span>
+                  <ChipResultado resultado={selecionado.resultado_final} />
                 </div>
                 <div>
                   <span className="text-navy-400">Veículo próprio: </span>
@@ -494,6 +509,7 @@ export default function Interviewer3() {
           )}
         </div>
 
+        {selecionado && <AvisoRepeticao candidato={selecionado} duplicatas={duplicatas} onReabrir={reabrirOpcoes} />}
         {mostrarDuplicidade && (
           <DuplicidadeModal
             candidatoAtual={selecionado}

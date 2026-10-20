@@ -5,7 +5,7 @@ import { useOpcoes } from '../lib/useOpcoes'
 import { useConfigFormulario } from '../lib/useConfigFormulario'
 import { useCamposFormulario } from '../lib/useCamposFormulario'
 import { useCepEndereco } from '../lib/useCepEndereco'
-import { CAMPOS_INICIAIS, validarCadastro, montarPayload } from '../lib/cadastro'
+import { CAMPOS_INICIAIS, validarCadastroDetalhado, montarPayload } from '../lib/cadastro'
 import CamposCadastro from '../components/CamposCadastro'
 import Toast from '../components/Toast'
 
@@ -21,6 +21,7 @@ export default function CandidateForm() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
   const [toast, setToast] = useState('')
+  const [erroCampo, setErroCampo] = useState(null)
   const inicioRef = useRef(Date.now())
 
   useEffect(() => {
@@ -30,7 +31,9 @@ export default function CandidateForm() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    const msg = validarCadastro(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: true })
+    const det = validarCadastroDetalhado(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: true })
+    const msg = det ? det.mensagem : null
+    if (det) setErroCampo({ campo: det.campo, n: Date.now() })
     if (msg) {
       setError(msg)
       setToast(msg)
@@ -97,6 +100,7 @@ export default function CandidateForm() {
             ocultos={ocultos}
             cep={cep}
             avisar={setToast}
+            erroExterno={erroCampo}
           />
           {error && <p className="text-sm text-clay-600">{error}</p>}
           <button type="submit" disabled={submitting} className="btn-primary w-full py-3.5 text-base">

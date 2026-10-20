@@ -6,7 +6,8 @@ import { useOpcoes } from '../lib/useOpcoes'
 import { useCamposFormulario } from '../lib/useCamposFormulario'
 import { useCepEndereco } from '../lib/useCepEndereco'
 import { useRegrasTeste, avaliarTeste } from '../lib/regrasTeste'
-import { candidatoParaForm, validarCadastro, montarPayload, OPCOES_COMPLIANCE } from '../lib/cadastro'
+import { calcularResultadoFinal } from '../lib/resultados'
+import { candidatoParaForm, validarCadastroDetalhado, montarPayload, OPCOES_COMPLIANCE } from '../lib/cadastro'
 import CamposCadastro from './CamposCadastro'
 import BoolToggle from './BoolToggle'
 import Toast from './Toast'
@@ -32,6 +33,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [toast, setToast] = useState('')
+  const [erroCampo, setErroCampo] = useState(null)
   const { opcoes, fontes } = useOpcoes()
   const { customizados, ocultos } = useCamposFormulario()
   const { regras } = useRegrasTeste()
@@ -41,9 +43,22 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
+  // Recalcula o resultado do teste deste candidato com a regra vigente (WPM/Precisão não mudam).
+  function recalcularTeste() {
+    const aval = avaliarTeste(numeroOuNull(form.wpm), numeroOuNull(form.precisao), regras)
+    if (!aval) {
+      setErro('Preencha WPM e Precisão para recalcular o resultado do teste.')
+      return
+    }
+    setErro('')
+    setForm((f) => ({ ...f, aprovado_teste: aval.aprovado, resultado_teste: aval.resultado }))
+  }
+
   async function salvar() {
     setErro('')
-    const msg = validarCadastro(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: false })
+    const det = validarCadastroDetalhado(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: false })
+    const msg = det ? det.mensagem : null
+    if (det) setErroCampo({ campo: det.campo, n: Date.now() })
     if (msg) {
       setErro(msg)
       setToast(msg)
@@ -102,6 +117,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
           ocultos={ocultos}
           cep={cep}
           avisar={setToast}
+            erroExterno={erroCampo}
         />
 
         <div className="pt-5 mt-6 border-t border-navy-100 dark:border-navy-800">
@@ -139,8 +155,17 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
               />
             </div>
             <div>
-              <label className="field-label">Resultado do teste</label>
-              <input className="field-input" value={form.resultado_teste ?? ''} readOnly placeholder="calculado pela regra do teste" />
+              <label className="field-label">Resultado do teste (fica guardado mesmo se reprovado na entrevista)</label>
+              <div className="flex gap-2">
+                <input className="field-input" value={form.resultado_teste ?? ''} readOnly placeholder="calculado pela regra do teste" />
+                <button type="button" onClick={recalcularTeste} className="btn-secondary text-xs whitespace-nowrap">
+                  Recalcular
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="field-label">Resultado final (entrevista + teste)</label>
+              <input className="field-input" readOnly value={calcularResultadoFinal(form) || 'Pendente'} />
             </div>
             <div>
               <label className="field-label">Alerta de comportamento</label>

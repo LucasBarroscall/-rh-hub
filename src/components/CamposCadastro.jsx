@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import CampoFonte from './CampoFonte'
 import SeletorTurnos from './SeletorTurnos'
@@ -44,10 +44,24 @@ function SimNao({ label, value, onChange, comentario, posicaoComentario = 'depoi
 // Todos os campos do cadastro do candidato — usado no formulário público, no
 // "Adicionar candidato" e na edição, para que as três telas tenham exatamente
 // o mesmo front, as mesmas máscaras e as mesmas validações.
-export default function CamposCadastro({ form, setForm, opcoes, fontes, customizados, ocultos, cep, avisar }) {
+export default function CamposCadastro({ form, setForm, opcoes, fontes, customizados, ocultos, cep, avisar, erroExterno }) {
   const { comentarios, titulos, posicoes } = useComentariosCompleto()
   const { legendas } = useLegendasOpcoes()
   const [invalidos, setInvalidos] = useState(new Set())
+
+  // Erro de validação ao enviar/salvar: o campo fica em vermelho (mesmo depois do
+  // aviso de 6s sumir) até a pessoa clicar/focalizar nele novamente.
+  useEffect(() => {
+    if (erroExterno && erroExterno.campo) setInvalidos((s) => new Set(s).add(erroExterno.campo))
+  }, [erroExterno])
+
+  const limpar = (nome) =>
+    setInvalidos((s) => {
+      if (!s.has(nome)) return s
+      const n = new Set(s)
+      n.delete(nome)
+      return n
+    })
 
   const set = (nome, valor) => setForm((f) => ({ ...f, [nome]: valor }))
 
@@ -64,7 +78,19 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
     if (!ok) avisar(regra.mensagem)
   }
 
-  const erro = (campo) => (invalidos.has(campo) ? 'border-clay-500 ring-2 ring-clay-500/20' : '')
+  const erro = (campo) => (invalidos.has(campo) ? 'border-clay-500 ring-2 ring-clay-500/40' : '')
+
+  // Para campos feitos de botões (turnos, escolhas, fonte…): contorno vermelho em volta.
+  const envolver = (nome, filho, chave) => (
+    <div
+      key={chave || nome}
+      className={invalidos.has(nome) ? 'rounded-xl ring-2 ring-clay-500 ring-offset-4 ring-offset-white dark:ring-offset-navy-900' : ''}
+      onFocusCapture={() => limpar(nome)}
+      onClickCapture={() => limpar(nome)}
+    >
+      {filho}
+    </div>
+  )
 
   const campo = (nome, rotuloPadrao, filho) => (
     <div className="flex flex-col">
@@ -104,7 +130,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
     <div className="space-y-6 sm:space-y-7">
       <section className="space-y-4">
         <h2 className={TITULO_SECAO}>Como você chegou até nós</h2>
-        <CampoFonte
+        {envolver('fonte', <CampoFonte
           fontes={fontes}
           fonteValor={form.fonte}
           onFonteChange={(v) => setForm((f) => ({ ...f, fonte: v, nome_indicador: '', rede_social: '' }))}
@@ -116,12 +142,13 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             validarAoSair('nome_indicador', v)
           }}
           detalheInvalido={invalidos.has('nome_indicador')}
+          onDetalheFocus={() => limpar('nome_indicador')}
           subValor={form.rede_social}
           onSubChange={(v) => set('rede_social', v)}
           comentario={comentarios.fonte}
           posicaoComentario={posicoes.fonte}
           rotulo={titulos.fonte}
-        />
+        />)}
       </section>
 
       <section className="space-y-4">
@@ -131,6 +158,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           'Nome completo',
           <input
             className={`field-input ${erro('nome_completo')}`}
+            onFocus={() => limpar('nome_completo')}
             value={form.nome_completo}
             onChange={(e) => set('nome_completo', e.target.value)}
             onBlur={() => {
@@ -148,6 +176,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
               type="text"
               inputMode="numeric"
               className={`field-input ${erro('data_nascimento')}`}
+            onFocus={() => limpar('data_nascimento')}
               placeholder="dd/mm/aaaa"
               value={form.data_nascimento}
               onChange={(e) => set('data_nascimento', maskDataBR(e.target.value))}
@@ -157,7 +186,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           {campo(
             'sexo',
             'Sexo',
-            <select className="field-select" value={form.sexo} onChange={(e) => set('sexo', e.target.value)}>
+            <select className={`field-select ${erro('sexo')}`} onFocus={() => limpar('sexo')} value={form.sexo} onChange={(e) => set('sexo', e.target.value)}>
               <option value="" disabled>
                 Selecione
               </option>
@@ -176,6 +205,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             <input
               inputMode="numeric"
               className={`field-input ${erro('rg')}`}
+            onFocus={() => limpar('rg')}
               value={form.rg}
               onChange={(e) => set('rg', maskRG(e.target.value))}
               onBlur={() => validarAoSair('rg', form.rg)}
@@ -188,6 +218,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             <input
               inputMode="numeric"
               className={`field-input ${erro('cpf')}`}
+            onFocus={() => limpar('cpf')}
               value={form.cpf}
               onChange={(e) => set('cpf', maskCPF(e.target.value))}
               onBlur={() => validarAoSair('cpf', form.cpf)}
@@ -200,6 +231,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           'Nome da mãe',
           <input
             className={`field-input ${erro('nome_mae')}`}
+            onFocus={() => limpar('nome_mae')}
             value={form.nome_mae}
             onChange={(e) => set('nome_mae', e.target.value)}
             onBlur={() => {
@@ -215,6 +247,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           <input
             inputMode="numeric"
             className={`field-input ${erro('telefone')}`}
+            onFocus={() => limpar('telefone')}
             value={form.telefone}
             onChange={(e) => set('telefone', maskTelefone(e.target.value))}
             onBlur={() => validarAoSair('telefone', form.telefone)}
@@ -227,6 +260,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           <input
             type="email"
             className={`field-input ${erro('email')}`}
+            onFocus={() => limpar('email')}
             value={form.email}
             onChange={(e) => set('email', e.target.value)}
             onBlur={() => validarAoSair('email', form.email)}
@@ -244,6 +278,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             <input
               inputMode="numeric"
               className={`field-input ${erro('cep')}`}
+            onFocus={() => limpar('cep')}
               value={form.cep}
               onChange={(e) => {
                 const novo = maskCEP(e.target.value)
@@ -267,7 +302,8 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             <label className="field-label">{titulos.numero || 'Número'}</label>
             <input
               ref={cep.numeroRef}
-              className="field-input"
+              className={`field-input ${erro('numero')}`}
+              onFocus={() => limpar('numero')}
               value={form.numero}
               disabled={bloqueado || cep.carregando}
               onChange={(e) => set('numero', e.target.value)}
@@ -301,14 +337,14 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
 
       <section className="space-y-4">
         <h2 className={TITULO_SECAO}>Disponibilidade</h2>
-        <SeletorTurnos
+        {envolver('disponibilidade_horario_trabalho', <SeletorTurnos
           label={titulos.disponibilidade_horario_trabalho || 'Horário de trabalho'}
           valorInicial={form.disponibilidade_horario_trabalho}
           onChange={(v) => set('disponibilidade_horario_trabalho', v)}
           comentario={comentarios.disponibilidade_horario_trabalho}
           posicaoComentario={posicoes.disponibilidade_horario_trabalho}
-        />
-        <EscolhaUnica
+        />)}
+        {envolver('disponibilidade_horario_treinamento', <EscolhaUnica
           label={titulos.disponibilidade_horario_treinamento || 'Disponibilidade para treinamento'}
           opcoes={OPCOES_TREINAMENTO}
           legendas={legendas.disponibilidade_horario_treinamento}
@@ -316,8 +352,8 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           onChange={(v) => set('disponibilidade_horario_treinamento', v)}
           comentario={comentarios.disponibilidade_horario_treinamento}
           posicaoComentario={posicoes.disponibilidade_horario_treinamento}
-        />
-        <EscolhaUnica
+        />)}
+        {envolver('disponibilidade_jornada', <EscolhaUnica
           label={titulos.disponibilidade_jornada || 'Escala de trabalho'}
           opcoes={OPCOES_ESCALA}
           legendas={legendas.disponibilidade_jornada}
@@ -325,7 +361,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
           onChange={(v) => set('disponibilidade_jornada', v)}
           comentario={comentarios.disponibilidade_jornada}
           posicaoComentario={posicoes.disponibilidade_jornada}
-        />
+        />)}
       </section>
 
       <section className="space-y-4">
@@ -362,8 +398,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
         )}
         {customizados
           .filter((c) => estaVisivel(c, customizados, form))
-          .map((c) => (
-            <CampoPersonalizado
+          .map((c) => envolver(c.chave, <CampoPersonalizado
               key={c.id}
               campo={c}
               titulo={titulos[c.chave]}
@@ -372,8 +407,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
               legendas={legendas[c.chave]}
               valor={(form.respostas_extras || {})[c.chave]}
               onChange={(v) => setForm((f) => ({ ...f, respostas_extras: { ...(f.respostas_extras || {}), [c.chave]: v } }))}
-            />
-          ))}
+            />, c.id))}
         {!ocultos.has('observacoes') &&
           campo(
             'observacoes',

@@ -5,6 +5,7 @@ export default function CampoFonte({
   detalheValor,
   onDetalheChange,
   onDetalheBlur,
+  onDetalheFocus,
   detalheInvalido,
   subValor,
   onSubChange,
@@ -43,6 +44,7 @@ export default function CampoFonte({
             className={`field-input ${detalheInvalido ? 'border-clay-500 ring-2 ring-clay-500/20' : ''}`}
             value={detalheValor}
             onBlur={onDetalheBlur}
+            onFocus={onDetalheFocus}
             onChange={(e) => onDetalheChange(e.target.value)}
             placeholder={selecionada.placeholder_dependencia || ''}
           />

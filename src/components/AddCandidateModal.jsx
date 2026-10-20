@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useOpcoes } from '../lib/useOpcoes'
 import { useCamposFormulario } from '../lib/useCamposFormulario'
 import { useCepEndereco } from '../lib/useCepEndereco'
-import { CAMPOS_INICIAIS, validarCadastro, montarPayload } from '../lib/cadastro'
+import { CAMPOS_INICIAIS, validarCadastroDetalhado, montarPayload } from '../lib/cadastro'
 import CamposCadastro from './CamposCadastro'
 import Toast from './Toast'
 
@@ -18,11 +18,14 @@ export default function AddCandidateModal({ onClose, onSaved }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [erroCampo, setErroCampo] = useState(null)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    const msg = validarCadastro(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: true })
+    const det = validarCadastroDetalhado(form, { fontes, customizados, ocultos, enderecoStatus: cep.status, estrito: true })
+    const msg = det ? det.mensagem : null
+    if (det) setErroCampo({ campo: det.campo, n: Date.now() })
     if (msg) {
       setError(msg)
       setToast(msg)
@@ -68,6 +71,7 @@ export default function AddCandidateModal({ onClose, onSaved }) {
             ocultos={ocultos}
             cep={cep}
             avisar={setToast}
+            erroExterno={erroCampo}
           />
           {error && <p className="text-sm text-clay-600">{error}</p>}
           <div className="flex justify-end gap-3 pt-2 border-t border-navy-100 dark:border-navy-800">

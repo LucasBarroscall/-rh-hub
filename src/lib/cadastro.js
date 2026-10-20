@@ -62,51 +62,58 @@ const ROTULOS = {
   cep: 'o CEP',
 }
 
-// Devolve a primeira mensagem de erro, ou null se estiver tudo certo.
+// Devolve { mensagem, campo } do primeiro erro (campo = qual campo marcar em vermelho), ou null.
 // estrito = true (cadastro novo): tudo obrigatório. estrito = false (edição):
 // só valida o formato do que estiver preenchido (e exige nome + CPF), para não
 // travar a edição de cadastros antigos incompletos.
-export function validarCadastro(form, { fontes = [], customizados = [], ocultos = new Set(), enderecoStatus = 'auto', estrito = true } = {}) {
+export function validarCadastroDetalhado(form, { fontes = [], customizados = [], ocultos = new Set(), enderecoStatus = 'auto', estrito = true } = {}) {
+  const falha = (mensagem, campo) => ({ mensagem, campo })
   const fonte = fontes.find((f) => f.valor === form.fonte)
-  if (estrito && !form.fonte) return 'Selecione a fonte.'
+  if (estrito && !form.fonte) return falha('Selecione a fonte.', 'fonte')
   if (fonte?.tipo_dependencia === 'texto') {
     if (!(form.nome_indicador || '').trim()) {
-      if (estrito) return `Preencha o campo "${fonte.rotulo_dependencia || 'detalhe'}".`
-    } else if (!VALIDACOES.nome_indicador.teste(form.nome_indicador)) return VALIDACOES.nome_indicador.mensagem
+      if (estrito) return falha(`Preencha o campo "${fonte.rotulo_dependencia || 'detalhe'}".`, 'nome_indicador')
+    } else if (!VALIDACOES.nome_indicador.teste(form.nome_indicador)) return falha(VALIDACOES.nome_indicador.mensagem, 'nome_indicador')
   }
   if (estrito && fonte?.tipo_dependencia === 'lista' && !form.rede_social) {
-    return `Selecione uma opção em "${fonte.rotulo_dependencia || 'detalhe'}".`
+    return falha(`Selecione uma opção em "${fonte.rotulo_dependencia || 'detalhe'}".`, 'fonte')
   }
 
   const obrigatorios = estrito ? Object.keys(ROTULOS) : ['nome_completo', 'cpf']
   for (const campo of Object.keys(ROTULOS)) {
     const valor = form[campo] || ''
     if (!valor) {
-      if (obrigatorios.includes(campo)) return `Preencha ${ROTULOS[campo]}.`
+      if (obrigatorios.includes(campo)) return falha(`Preencha ${ROTULOS[campo]}.`, campo)
       continue
     }
-    if (!VALIDACOES[campo].teste(valor)) return VALIDACOES[campo].mensagem
+    if (!VALIDACOES[campo].teste(valor)) return falha(VALIDACOES[campo].mensagem, campo)
   }
 
   if (estrito) {
-    if (!form.sexo) return 'Selecione o sexo.'
+    if (!form.sexo) return falha('Selecione o sexo.', 'sexo')
     if (enderecoStatus === 'pendente' || !form.logradouro || !form.cidade) {
-      return 'Informe um CEP válido para localizar o endereço.'
+      return falha('Informe um CEP válido para localizar o endereço.', 'cep')
     }
-    if (!(form.numero || '').trim()) return 'Preencha o número do endereço.'
+    if (!(form.numero || '').trim()) return falha('Preencha o número do endereço.', 'numero')
     if (!form.disponibilidade_horario_trabalho || form.disponibilidade_horario_trabalho === 'Nenhum horário selecionado') {
-      return 'Selecione ao menos um turno de disponibilidade de trabalho.'
+      return falha('Selecione ao menos um turno de disponibilidade de trabalho.', 'disponibilidade_horario_trabalho')
     }
-    if (!form.disponibilidade_horario_treinamento) return 'Selecione a disponibilidade para treinamento.'
-    if (!form.disponibilidade_jornada) return 'Selecione a escala de trabalho.'
+    if (!form.disponibilidade_horario_treinamento) return falha('Selecione a disponibilidade para treinamento.', 'disponibilidade_horario_treinamento')
+    if (!form.disponibilidade_jornada) return falha('Selecione a escala de trabalho.', 'disponibilidade_jornada')
     for (const c of customizados) {
       if (c.obrigatorio && estaVisivel(c, customizados, form)) {
         const v = (form.respostas_extras || {})[c.chave]
-        if (respostaVazia(v)) return `Responda: ${c.rotulo}`
+        if (respostaVazia(v)) return falha(`Responda: ${c.rotulo}`, c.chave)
       }
     }
   }
   return null
+}
+
+// Versão simples: só a mensagem (ou null).
+export function validarCadastro(form, opcoes) {
+  const d = validarCadastroDetalhado(form, opcoes)
+  return d ? d.mensagem : null
 }
 
 // Monta o objeto que vai para o banco (tudo normalizado/MAIÚSCULO).
