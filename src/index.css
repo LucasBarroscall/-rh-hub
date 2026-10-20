@@ -136,3 +136,9 @@
     width: 0%;
   }
 }
+
+/* Comentário "antes": aparece logo abaixo do título e acima da área de resposta */
+.field-label + .comentario-rico {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}

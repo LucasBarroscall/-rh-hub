@@ -7,6 +7,7 @@ import { buscarTodos } from '../../lib/buscarTodos'
 const ROTULO_ACAO = { INSERT: 'Criou', UPDATE: 'Alterou', DELETE: 'Excluiu' }
 const ROTULO_TABELA = {
   candidatos: 'Candidato',
+  legendas_opcoes: 'Legenda de botão (horário)',
   profiles: 'Acesso (usuário)',
   opcoes_lista: 'Lista de opções',
   opcoes_sublista: 'Sub-lista',

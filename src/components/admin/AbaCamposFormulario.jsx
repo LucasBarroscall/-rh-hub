@@ -1,9 +1,10 @@
 import { useFecharComEsc, aoClicarFora } from '../../lib/useModal'
 import { useEffect, useState, useCallback } from 'react'
-import { Trash2, ChevronUp, ChevronDown, Plus, ListPlus, Pencil, X, GitBranch } from 'lucide-react'
+import { Trash2, ChevronUp, ChevronDown, Plus, ListPlus, Pencil, X, GitBranch, Clock } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { CAMPOS_PADRAO_OCULTAVEIS } from '../../lib/useCamposFormulario'
 import { useOpcoes } from '../../lib/useOpcoes'
+import { OPCOES_TREINAMENTO, OPCOES_ESCALA } from '../../lib/cadastro'
 import { TIPOS_CAMPO, TIPOS_COM_OPCOES, TIPOS_CONTROLADORES } from '../../lib/camposPersonalizados'
 import EditorRico from '../EditorRico'
 
@@ -27,13 +28,79 @@ function dependeDe(c, alvoChave, lista, nivel = 0) {
 
 const comentarioVazio = (html) => !html || (!html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim() && !/<img/.test(html))
 
+const GRUPOS_LEGENDAS = [
+  ['disponibilidade_horario_treinamento', 'Disponibilidade para treinamento', OPCOES_TREINAMENTO, 'Ex.: 06:00 - 12:00'],
+  ['disponibilidade_jornada', 'Escala de trabalho', OPCOES_ESCALA, 'Ex.: Segunda a sábado'],
+]
+
+// Legendas (ex.: horários) que aparecem dentro dos botões dos campos padrão.
+function CartaoLegendas() {
+  const [valores, setValores] = useState({})
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    supabase
+      .from('legendas_opcoes')
+      .select('*')
+      .then(({ data }) => {
+        const m = {}
+        ;(data || []).forEach((l) => {
+          m[`${l.campo}||${l.opcao}`] = l.legenda
+        })
+        setValores(m)
+      })
+  }, [])
+
+  async function salvar(campo, opcao) {
+    const texto = (valores[`${campo}||${opcao}`] || '').trim()
+    const r = texto
+      ? await supabase.from('legendas_opcoes').upsert({ campo, opcao, legenda: texto })
+      : await supabase.from('legendas_opcoes').delete().eq('campo', campo).eq('opcao', opcao)
+    setErro(r.error ? r.error.message : '')
+  }
+
+  return (
+    <div className="card p-5">
+      <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-1 flex items-center gap-2">
+        <Clock size={16} className="text-navy-400" /> Legendas dos botões (horários)
+      </h3>
+      <p className="text-xs text-navy-400 mb-4">
+        O texto aparece dentro do botão, abaixo do nome, igual ao horário de trabalho. Deixe em branco para não mostrar legenda. (Para campos
+        personalizados, a legenda é definida ao editar o campo.)
+      </p>
+      {erro && <p className="text-sm text-clay-600 mb-2">{erro}</p>}
+      <div className="space-y-4">
+        {GRUPOS_LEGENDAS.map(([campo, titulo, opcoes, exemplo]) => (
+          <div key={campo}>
+            <p className="text-sm font-medium text-navy-800 dark:text-navy-100 mb-2">{titulo}</p>
+            <div className="space-y-2">
+              {opcoes.map((op) => (
+                <div key={op} className="flex items-center gap-3">
+                  <span className="w-20 text-sm text-navy-600 dark:text-navy-300">{op}</span>
+                  <input
+                    className="field-input py-1.5 text-sm"
+                    placeholder={exemplo}
+                    value={valores[`${campo}||${op}`] || ''}
+                    onChange={(e) => setValores((v) => ({ ...v, [`${campo}||${op}`]: e.target.value }))}
+                    onBlur={() => salvar(campo, op)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
   useFecharComEsc(aoFechar)
   const { opcoes: opcoesPadrao, fontes } = useOpcoes()
   const [f, setF] = useState({
     rotulo: campo?.rotulo || '',
     tipo: campo?.tipo || 'texto',
-    opcoes: campo?.opcoes?.length ? campo.opcoes : ['', ''],
+    opcoes: (campo?.opcoes?.length ? campo.opcoes : ['', '']).map((v) => ({ valor: v, legenda: '' })),
     obrigatorio: campo?.obrigatorio || false,
     placeholder: campo?.placeholder || '',
     condCampo: campo?.condicao?.campo || '',
@@ -59,6 +126,17 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
           setPosicao(data.posicao || 'depois')
         }
       })
+    supabase
+      .from('legendas_opcoes')
+      .select('*')
+      .eq('campo', campo.chave)
+      .then(({ data }) => {
+        const m = {}
+        ;(data || []).forEach((l) => {
+          m[l.opcao] = l.legenda
+        })
+        setF((s) => ({ ...s, opcoes: s.opcoes.map((o) => ({ ...o, legenda: m[o.valor] || '' })) }))
+      })
   }, [campo])
 
   // Campos que podem controlar este (sem criar ciclos).
@@ -73,9 +151,10 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
     { chave: 'concorda_turno_treinamento', rotulo: 'Concorda com o turno de treinamento (campo padrão)', opcoes: ['Sim', 'Não'] },
   ]
   const controlador = controladores.find((c) => c.chave === f.condCampo)
+  const comLegenda = ['selecao', 'multipla'].includes(f.tipo)
 
-  function setOpcao(i, valor) {
-    setF((s) => ({ ...s, opcoes: s.opcoes.map((o, j) => (j === i ? valor : o)) }))
+  function setOpcao(i, campoObj, valor) {
+    setF((s) => ({ ...s, opcoes: s.opcoes.map((o, j) => (j === i ? { ...o, [campoObj]: valor } : o)) }))
   }
   function moverOpcao(i, d) {
     setF((s) => {
@@ -95,7 +174,7 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
     const rotulo = f.rotulo.trim()
     if (!rotulo) return setErro('Informe a pergunta / título do campo.')
     const comOpcoes = TIPOS_COM_OPCOES.includes(f.tipo)
-    const opcoes = comOpcoes ? f.opcoes.map((o) => o.trim()).filter(Boolean) : []
+    const opcoes = comOpcoes ? f.opcoes.map((o) => o.valor.trim()).filter(Boolean) : []
     if (comOpcoes && opcoes.length < 2) return setErro('Informe ao menos 2 opções.')
     if (f.condCampo && f.condValores.length === 0) return setErro('Escolha em quais respostas este campo deve aparecer.')
     const dados = {
@@ -129,6 +208,20 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
       if (r2.error) {
         setSalvando(false)
         return setErro(`Campo salvo, mas o comentário falhou: ${r2.error.message}`)
+      }
+    }
+    // legendas dos botões (substitui as antigas deste campo)
+    await supabase.from('legendas_opcoes').delete().eq('campo', chave)
+    if (comLegenda) {
+      const linhas = f.opcoes
+        .filter((o) => o.valor.trim() && o.legenda.trim())
+        .map((o) => ({ campo: chave, opcao: o.valor.trim(), legenda: o.legenda.trim() }))
+      if (linhas.length) {
+        const r3 = await supabase.from('legendas_opcoes').insert(linhas)
+        if (r3.error) {
+          setSalvando(false)
+          return setErro(`Campo salvo, mas as legendas falharam: ${r3.error.message}`)
+        }
       }
     }
     setSalvando(false)
@@ -166,27 +259,38 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
           {TIPOS_COM_OPCOES.includes(f.tipo) && (
             <div>
               <label className="field-label">Opções</label>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {f.opcoes.map((o, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input className="field-input py-1.5 text-sm" value={o} onChange={(e) => setOpcao(i, e.target.value)} placeholder={`Opção ${i + 1}`} />
-                    <button type="button" onClick={() => moverOpcao(i, -1)} className="text-navy-400 hover:text-navy-700">
-                      <ChevronUp size={15} />
-                    </button>
-                    <button type="button" onClick={() => moverOpcao(i, 1)} className="text-navy-400 hover:text-navy-700">
-                      <ChevronDown size={15} />
-                    </button>
-                    <button type="button" onClick={() => setF((s) => ({ ...s, opcoes: s.opcoes.filter((_, j) => j !== i) }))} className="text-navy-400 hover:text-clay-600">
-                      <Trash2 size={14} />
-                    </button>
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input className="field-input py-1.5 text-sm" value={o.valor} onChange={(e) => setOpcao(i, 'valor', e.target.value)} placeholder={`Opção ${i + 1}`} />
+                      <button type="button" onClick={() => moverOpcao(i, -1)} className="text-navy-400 hover:text-navy-700">
+                        <ChevronUp size={15} />
+                      </button>
+                      <button type="button" onClick={() => moverOpcao(i, 1)} className="text-navy-400 hover:text-navy-700">
+                        <ChevronDown size={15} />
+                      </button>
+                      <button type="button" onClick={() => setF((s) => ({ ...s, opcoes: s.opcoes.filter((_, j) => j !== i) }))} className="text-navy-400 hover:text-clay-600">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    {comLegenda && (
+                      <input
+                        className="field-input py-1 text-xs"
+                        value={o.legenda}
+                        onChange={(e) => setOpcao(i, 'legenda', e.target.value)}
+                        placeholder="Legenda dentro do botão (ex.: o horário) — opcional"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={() => setF((s) => ({ ...s, opcoes: [...s.opcoes, ''] }))} className="btn-secondary text-xs mt-2 flex items-center gap-1">
+              <button type="button" onClick={() => setF((s) => ({ ...s, opcoes: [...s.opcoes, { valor: '', legenda: '' }] }))} className="btn-secondary text-xs mt-2 flex items-center gap-1">
                 <Plus size={13} /> Adicionar opção
               </button>
               <p className="text-xs text-navy-400 mt-1">
                 Para "aparecer uma nova pergunta" quando uma opção for escolhida, crie outro campo e marque abaixo "Mostrar somente quando…".
+                {!comLegenda && ' A legenda dentro do botão está disponível nos tipos "Escolha única" e "Múltipla escolha".'}
               </p>
             </div>
           )}
@@ -251,7 +355,7 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
             <p className="field-label mb-2">Onde o comentário aparece</p>
             <div className="flex gap-2">
               {[
-                ['antes', 'Antes do campo'],
+                ['antes', 'Antes do campo (abaixo do título)'],
                 ['depois', 'Depois do campo'],
               ].map(([v, l]) => (
                 <button
@@ -333,6 +437,7 @@ export default function AbaCamposFormulario() {
     if (error) setErro(error.message)
     else {
       await supabase.from('campo_comentarios').delete().eq('campo', c.chave)
+      await supabase.from('legendas_opcoes').delete().eq('campo', c.chave)
       carregar()
     }
   }
@@ -345,8 +450,8 @@ export default function AbaCamposFormulario() {
         <ListPlus size={16} className="text-navy-400 flex-shrink-0 mt-0.5" />
         <p>
           Crie novas perguntas com os mesmos recursos dos campos padrão: texto, lista, escolha única, múltipla escolha, Sim/Não, número ou data; comentário
-          com formatação (antes ou depois do campo); e regras para <strong>aparecer só quando outra resposta for escolhida</strong>. As mudanças valem no
-          formulário público, no "Adicionar candidato" e na edição.
+          com formatação (antes ou depois do campo); legendas dentro dos botões; e regras para <strong>aparecer só quando outra resposta for escolhida</strong>.
+          As mudanças valem no formulário público, no "Adicionar candidato" e na edição.
         </p>
       </div>
 
@@ -366,6 +471,8 @@ export default function AbaCamposFormulario() {
         </div>
         <p className="text-xs text-navy-400 mt-2">Nome, CPF, contato, endereço e disponibilidade são essenciais e não podem ser removidos.</p>
       </div>
+
+      <CartaoLegendas />
 
       <div className="card p-5">
         <div className="flex items-center justify-between mb-3">

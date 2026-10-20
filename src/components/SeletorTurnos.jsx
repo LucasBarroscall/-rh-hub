@@ -83,8 +83,8 @@ export default function SeletorTurnos({ label, onChange, valorInicial = '', come
 
   return (
     <div>
-      {posicaoComentario === 'antes' && bloco}
       <span className="field-label">{label}</span>
+      {posicaoComentario === 'antes' && bloco}
       <div className="grid grid-cols-2 gap-2 mb-2">
         {TURNOS.map((t) => (
           <button

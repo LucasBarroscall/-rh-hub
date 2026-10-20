@@ -20,8 +20,8 @@ export default function CampoFonte({
   return (
     <>
       <div>
-        {posicaoComentario === 'antes' && blocoComentario}
         <label className="field-label">{rotulo || 'Fonte'}</label>
+        {posicaoComentario === 'antes' && blocoComentario}
         <select className="field-select" required value={fonteValor} onChange={(e) => onFonteChange(e.target.value)}>
           <option value="" disabled>
             Selecione

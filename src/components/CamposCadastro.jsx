@@ -7,6 +7,7 @@ import InputSugestao from './InputSugestao'
 import CampoPersonalizado from './CampoPersonalizado'
 import ComentarioCampo from './ComentarioCampo'
 import { useComentariosCompleto } from '../lib/useComentarios'
+import { useLegendasOpcoes } from '../lib/useLegendasOpcoes'
 import { maskRG, maskCPF, maskTelefone, maskCEP, maskDataBR, normalizarTexto } from '../lib/formatters'
 import { VALIDACOES, OPCOES_TREINAMENTO, OPCOES_ESCALA } from '../lib/cadastro'
 import { estaVisivel } from '../lib/camposPersonalizados'
@@ -17,8 +18,8 @@ function SimNao({ label, value, onChange, comentario, posicaoComentario = 'depoi
   const bloco = comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
   return (
     <div>
-      {posicaoComentario === 'antes' && bloco}
       <span className="field-label">{label}</span>
+      {posicaoComentario === 'antes' && bloco}
       <div className="flex gap-2">
         {['Sim', 'Não'].map((opt) => (
           <button
@@ -45,6 +46,7 @@ function SimNao({ label, value, onChange, comentario, posicaoComentario = 'depoi
 // o mesmo front, as mesmas máscaras e as mesmas validações.
 export default function CamposCadastro({ form, setForm, opcoes, fontes, customizados, ocultos, cep, avisar }) {
   const { comentarios, titulos, posicoes } = useComentariosCompleto()
+  const { legendas } = useLegendasOpcoes()
   const [invalidos, setInvalidos] = useState(new Set())
 
   const set = (nome, valor) => setForm((f) => ({ ...f, [nome]: valor }))
@@ -67,8 +69,9 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
   const campo = (nome, rotuloPadrao, filho) => (
     <div className="flex flex-col">
       <label className="field-label">{titulos[nome] || rotuloPadrao}</label>
+      {posicoes[nome] === 'antes' && <ComentarioCampo texto={comentarios[nome]} posicao="antes" />}
       {filho}
-      <ComentarioCampo texto={comentarios[nome]} posicao={posicoes[nome]} />
+      {posicoes[nome] !== 'antes' && <ComentarioCampo texto={comentarios[nome]} posicao={posicoes[nome]} />}
     </div>
   )
 
@@ -236,6 +239,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
         <h2 className={TITULO_SECAO}>Endereço</h2>
         <div className="flex flex-col">
           <label className="field-label">{titulos.cep || 'CEP'}</label>
+          {posicoes.cep === 'antes' && <ComentarioCampo texto={comentarios.cep} posicao="antes" />}
           <div className="relative">
             <input
               inputMode="numeric"
@@ -255,7 +259,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             {cep.carregando && <Loader2 size={16} className="animate-spin text-navy-400 absolute right-3 top-1/2 -translate-y-1/2" />}
           </div>
           {cep.aviso && <p className="text-xs text-clay-600 mt-1.5">{cep.aviso}</p>}
-          <ComentarioCampo texto={comentarios.cep} posicao={posicoes.cep} />
+          {posicoes.cep !== 'antes' && <ComentarioCampo texto={comentarios.cep} posicao={posicoes.cep} />}
         </div>
         {textoEndereco('logradouro', titulos.logradouro || 'Rua / Logradouro')}
         <div className="grid grid-cols-2 gap-3">
@@ -307,6 +311,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
         <EscolhaUnica
           label={titulos.disponibilidade_horario_treinamento || 'Disponibilidade para treinamento'}
           opcoes={OPCOES_TREINAMENTO}
+          legendas={legendas.disponibilidade_horario_treinamento}
           valor={form.disponibilidade_horario_treinamento}
           onChange={(v) => set('disponibilidade_horario_treinamento', v)}
           comentario={comentarios.disponibilidade_horario_treinamento}
@@ -315,6 +320,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
         <EscolhaUnica
           label={titulos.disponibilidade_jornada || 'Escala de trabalho'}
           opcoes={OPCOES_ESCALA}
+          legendas={legendas.disponibilidade_jornada}
           valor={form.disponibilidade_jornada}
           onChange={(v) => set('disponibilidade_jornada', v)}
           comentario={comentarios.disponibilidade_jornada}
@@ -363,6 +369,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
               titulo={titulos[c.chave]}
               comentario={comentarios[c.chave]}
               posicao={posicoes[c.chave]}
+              legendas={legendas[c.chave]}
               valor={(form.respostas_extras || {})[c.chave]}
               onChange={(v) => setForm((f) => ({ ...f, respostas_extras: { ...(f.respostas_extras || {}), [c.chave]: v } }))}
             />

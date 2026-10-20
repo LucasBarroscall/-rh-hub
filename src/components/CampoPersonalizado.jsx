@@ -3,8 +3,9 @@ import CheckboxGroup from './CheckboxGroup'
 import ComentarioCampo from './ComentarioCampo'
 
 // Renderiza um campo criado pelo analista, com o mesmo comportamento dos
-// campos padrão: título editável, comentário com formatação e posição.
-export default function CampoPersonalizado({ campo, valor, onChange, titulo, comentario, posicao = 'depois' }) {
+// campos padrão: título editável, comentário com formatação e posição
+// (antes = logo abaixo do título; depois = abaixo do campo) e legendas nos botões.
+export default function CampoPersonalizado({ campo, valor, onChange, titulo, comentario, posicao = 'depois', legendas }) {
   const rotulo = (titulo || campo.rotulo) + (campo.obrigatorio ? ' *' : '')
   const opcoes = campo.opcoes || []
 
@@ -12,8 +13,8 @@ export default function CampoPersonalizado({ campo, valor, onChange, titulo, com
     const bloco = comentario && <div className="comentario-rico" dangerouslySetInnerHTML={{ __html: comentario }} />
     return (
       <div>
-        {posicao === 'antes' && bloco}
         <span className="field-label">{rotulo}</span>
+        {posicao === 'antes' && bloco}
         <div className="flex gap-2">
           {['Sim', 'Não'].map((op) => (
             <button
@@ -35,10 +36,10 @@ export default function CampoPersonalizado({ campo, valor, onChange, titulo, com
     )
   }
   if (campo.tipo === 'selecao') {
-    return <EscolhaUnica label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} />
+    return <EscolhaUnica label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} legendas={legendas} />
   }
   if (campo.tipo === 'multipla') {
-    return <CheckboxGroup label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} />
+    return <CheckboxGroup label={rotulo} opcoes={opcoes} valor={valor || ''} onChange={onChange} comentario={comentario} posicaoComentario={posicao} legendas={legendas} />
   }
 
   let controle
@@ -71,8 +72,9 @@ export default function CampoPersonalizado({ campo, valor, onChange, titulo, com
   return (
     <div className="flex flex-col">
       <label className="field-label">{rotulo}</label>
+      {posicao === 'antes' && <ComentarioCampo texto={comentario} posicao="antes" />}
       {controle}
-      <ComentarioCampo texto={comentario} posicao={posicao} />
+      {posicao !== 'antes' && <ComentarioCampo texto={comentario} posicao={posicao} />}
     </div>
   )
 }

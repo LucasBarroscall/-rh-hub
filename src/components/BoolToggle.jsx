@@ -12,8 +12,8 @@ export default function BoolToggle({ label, value, onChange, disabled, semantic,
 
   return (
     <div>
-      {posicaoComentario === 'antes' && blocoComentario}
       <p className="field-label">{label}</p>
+      {posicaoComentario === 'antes' && blocoComentario}
       <div className="flex gap-2">
         {[true, false].map((v) => {
           const ativo = value === v
