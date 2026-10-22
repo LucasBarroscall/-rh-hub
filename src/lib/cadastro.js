@@ -101,7 +101,7 @@ export function validarCadastroDetalhado(form, { fontes = [], customizados = [],
     if (!form.disponibilidade_horario_treinamento) return falha('Selecione a disponibilidade para treinamento.', 'disponibilidade_horario_treinamento')
     if (!form.disponibilidade_jornada) return falha('Selecione a escala de trabalho.', 'disponibilidade_jornada')
     for (const c of customizados) {
-      if (c.obrigatorio && estaVisivel(c, customizados, form)) {
+      if (estaVisivel(c, customizados, form)) {
         const v = (form.respostas_extras || {})[c.chave]
         if (respostaVazia(v)) return falha(`Responda: ${c.rotulo}`, c.chave)
       }

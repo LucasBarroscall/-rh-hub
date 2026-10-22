@@ -2,6 +2,7 @@ import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useEffect, useState, useCallback } from 'react'
 import { X, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import SeletorCor from './SeletorCor'
 
 const TIPOS = [
   { id: 'nenhum', label: 'Nenhum campo extra', exemplo: 'ex.: Outros' },
@@ -103,6 +104,7 @@ function SubLista({ opcaoPaiId }) {
 export default function EditarOpcaoModal({ opcao, campo, onClose, onSaved }) {
   useFecharComEsc(onClose)
   const [valor, setValor] = useState(opcao.valor)
+  const [cor, setCor] = useState(opcao.cor || '#2f4c73')
   const [tipoDependencia, setTipoDependencia] = useState(opcao.tipo_dependencia || 'nenhum')
   const [rotulo, setRotulo] = useState(opcao.rotulo_dependencia || '')
   const [placeholder, setPlaceholder] = useState(opcao.placeholder_dependencia || '')
@@ -113,6 +115,7 @@ export default function EditarOpcaoModal({ opcao, campo, onClose, onSaved }) {
     setErro('')
     setSalvando(true)
     const campos = { valor: valor.trim() }
+    if (campo === 'documento') campos.cor = cor
     if (campo === 'fonte') {
       campos.tipo_dependencia = tipoDependencia
       campos.rotulo_dependencia = tipoDependencia === 'nenhum' ? null : rotulo.trim() || null
@@ -142,6 +145,13 @@ export default function EditarOpcaoModal({ opcao, campo, onClose, onSaved }) {
             <label className="field-label">Nome da opção</label>
             <input className="field-input" value={valor} onChange={(e) => setValor(e.target.value)} />
           </div>
+
+          {campo === 'documento' && (
+            <div>
+              <label className="field-label">Cor do documento (aparece como fundo do nome)</label>
+              <SeletorCor valor={cor} onChange={setCor} />
+            </div>
+          )}
 
           {campo === 'fonte' && (
             <>

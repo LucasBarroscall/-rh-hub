@@ -2,7 +2,7 @@ import { useFecharComEsc } from '../lib/useModal'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
-import RespostasExtras from '../components/RespostasExtras'
+import CamposAdicionaisCandidato from '../components/CamposAdicionaisCandidato'
 import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
 import AvisoRepeticao from '../components/AvisoRepeticao'
 import FiltroResultado from '../components/FiltroResultado'
@@ -254,8 +254,8 @@ export default function Interviewer2() {
                 </div>
               </div>
 
-              <AlertaReprovacaoAnterior duplicatas={duplicatas} />
-              <RespostasExtras candidato={selecionado} />
+              {resultadoVisivel && <AlertaReprovacaoAnterior duplicatas={duplicatas} />}
+              <CamposAdicionaisCandidato candidato={selecionado} etapa={2} comGrade />
 
               {selecionado.comentario_entrevistador1 && (
                 <div className="flex items-start gap-2 rounded-lg bg-navy-50 dark:bg-navy-800 px-3.5 py-3 mb-6 text-sm">
@@ -391,6 +391,7 @@ export default function Interviewer2() {
         {mostrarDuplicidade && (
           <DuplicidadeModal
             candidatoAtual={selecionado}
+            ocultarResultados={!resultadoVisivel}
             duplicatas={duplicatas}
             onFechar={dispensar}
             onRepetido={() => {

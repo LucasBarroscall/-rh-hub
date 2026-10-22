@@ -89,7 +89,7 @@ export default function BancoTalentos() {
     const linhas = filtrados.map((c) => {
       // eslint-disable-next-line no-unused-vars
       const { idade, updated_at, cpf_digitos, documentos, respostas_extras, ...resto } = c
-      return { ...resto, ...Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? ''])) }
+      return { ...resto, ...Object.fromEntries(listaDocs.map((n) => [n, documentos && documentos[n] === 'enviado' ? 'Enviado' : documentos && documentos[n] === 'na' ? 'Não se aplica' : ''])), ...Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? ''])) }
     })
     const blob = new Blob(['\uFEFF' + Papa.unparse(linhas)], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

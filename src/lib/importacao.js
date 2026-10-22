@@ -1,5 +1,6 @@
 import { maskCPF, maskTelefone, maskCEP, normalizarTexto } from './formatters'
 import { avaliarTeste } from './regrasTeste'
+import { hojeISO } from './cadastro'
 
 // Colunas aceitas na importação (as que o banco calcula sozinho — id, idade,
 // cpf_digitos, updated_at — nunca são importadas).
@@ -10,7 +11,7 @@ export const COLUNAS_IMPORTAVEIS = [
   'possui_veiculo', 'concorda_turno_treinamento', 'possui_ensino_superior', 'observacoes',
   'data_entrevista', 'compareceu_entrevista', 'aprovado_entrevista', 'entrevista_em',
   'teste_realizado', 'wpm', 'precisao', 'alerta_comportamental', 'teste_em', 'compliance',
-  'data_exame', 'compareceu_exame', 'aprovado_exame', 'enviou_documentacao', 'aprovado_documentacao',
+  'data_exame', 'compareceu_exame', 'aprovado_exame', 'data_aprovacao_exame', 'enviou_documentacao', 'aprovado_documentacao',
   'compareceu_onboarding', 'compareceu_treinamento', 'decisao_final', 'contatado_whatsapp', 'decisao_em',
   'compareceu_alo', 'tempo_preenchimento_segundos', 'rede_social', 'documentacao_solicitada',
   'data_documentacao_solicitada', 'data_envio_documentacao', 'data_onboarding', 'data_treinamento',
@@ -18,7 +19,7 @@ export const COLUNAS_IMPORTAVEIS = [
 ]
 
 // Colunas que aparecem no modelo para download.
-export const COLUNAS_MODELO = COLUNAS_IMPORTAVEIS.filter((c) => !['resultado_teste', 'aprovado_teste'].includes(c))
+export const COLUNAS_MODELO = [...COLUNAS_IMPORTAVEIS.filter((c) => !['resultado_teste', 'aprovado_teste'].includes(c)), 'resultado_exame']
 
 const BOOLEANAS = [
   'possui_veiculo', 'concorda_turno_treinamento', 'possui_ensino_superior', 'compareceu_entrevista', 'aprovado_entrevista',
@@ -26,7 +27,7 @@ const BOOLEANAS = [
   'compareceu_onboarding', 'compareceu_treinamento', 'contatado_whatsapp', 'compareceu_alo', 'documentacao_solicitada', 'aprovado_teste',
 ]
 const DATAS = [
-  'data_nascimento', 'data_entrevista', 'data_exame', 'data_documentacao_solicitada', 'data_envio_documentacao',
+  'data_nascimento', 'data_entrevista', 'data_exame', 'data_aprovacao_exame', 'data_documentacao_solicitada', 'data_envio_documentacao',
   'data_onboarding', 'data_treinamento', 'data_contato_whatsapp', 'data_alo',
 ]
 const TIMESTAMPS = ['created_at', 'entrevista_em', 'teste_em', 'decisao_em']
@@ -59,7 +60,7 @@ function parseBool(texto) {
 // Converte uma linha do CSV para o formato do banco. Campos vazios ficam de
 // fora (null/padrão do banco); texto vira MAIÚSCULO; datas aceitam dd/mm/aaaa.
 // created_at vazio => o banco usa a data/hora da importação.
-export function converterLinhaImportacao(linha, regras = [], customizados = []) {
+export function converterLinhaImportacao(linha, regras = [], customizados = [], documentosLista = []) {
   const bruto = {}
   Object.keys(linha).forEach((k) => {
     bruto[String(k).trim().toLowerCase()] = linha[k]
@@ -116,6 +117,43 @@ export function converterLinhaImportacao(linha, regras = [], customizados = []) 
     extras[cf.chave] = v
   })
   if (Object.keys(extras).length) out.respostas_extras = extras
+
+  // Resultado do exame em uma coluna só: Sim / Não / Não compareceu
+  if (bruto.resultado_exame != null && String(bruto.resultado_exame).trim() !== '') {
+    const t = String(bruto.resultado_exame).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    if (t === 'sim') {
+      out.aprovado_exame = true
+      out.compareceu_exame = true
+      if (!out.data_aprovacao_exame) out.data_aprovacao_exame = hojeISO()
+    } else if (t === 'nao') {
+      out.aprovado_exame = false
+      out.compareceu_exame = true
+    } else if (t.startsWith('nao compar')) {
+      out.compareceu_exame = false
+    }
+  }
+
+  // Documentos: uma coluna por documento da lista (Enviado / Não se aplica / vazio)
+  const docs = {}
+  documentosLista.forEach((nome) => {
+    const v = bruto[String(nome).trim().toLowerCase()]
+    if (v == null || String(v).trim() === '') return
+    const t = String(v).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    if (['enviado', 'sim', 's', 'x', 'true', '1'].includes(t)) docs[nome] = 'enviado'
+    else if (['na', 'n/a', 'nao se aplica', 'nao aplica'].includes(t)) docs[nome] = 'na'
+  })
+  if (Object.keys(docs).length) {
+    out.documentos = docs
+    const aplicaveis = documentosLista.filter((n) => docs[n] !== 'na')
+    const completo = aplicaveis.length > 0 && aplicaveis.every((n) => docs[n] === 'enviado')
+    if (completo) {
+      out.enviou_documentacao = true
+      out.aprovado_documentacao = true
+      if (!out.data_envio_documentacao) {
+        out.data_envio_documentacao = out.created_at ? new Date(out.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) : hojeISO()
+      }
+    }
+  }
 
   if (!out.data_entrevista && out.created_at) {
     out.data_entrevista = new Date(out.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })

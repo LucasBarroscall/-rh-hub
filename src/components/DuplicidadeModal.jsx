@@ -13,7 +13,7 @@ const CAMPOS_REPETIVEIS = [
   'contatado_whatsapp', 'data_contato_whatsapp',
   'documentacao_solicitada', 'data_documentacao_solicitada',
   'enviou_documentacao', 'data_envio_documentacao', 'aprovado_documentacao',
-  'data_exame', 'compareceu_exame', 'aprovado_exame',
+  'data_exame', 'compareceu_exame', 'aprovado_exame', 'data_aprovacao_exame',
   'data_onboarding', 'compareceu_onboarding',
   'data_treinamento', 'compareceu_treinamento',
   'data_alo', 'compareceu_alo',
@@ -35,7 +35,7 @@ function resultadoResumo(d) {
   return partes.join(' · ')
 }
 
-export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar, onRepetido }) {
+export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar, onRepetido, ocultarResultados = false }) {
   useFecharComEsc(onFechar)
   const [aplicandoId, setAplicandoId] = useState(null)
 
@@ -99,7 +99,7 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
             >
               <div className="flex items-center justify-between">
                 <p className="font-medium text-navy-800 dark:text-navy-100">
-                  {formatarData(d.data_entrevista)} — {statusAtual(d)}
+                  {ocultarResultados ? formatarData(d.data_entrevista) : `${formatarData(d.data_entrevista)} — ${statusAtual(d)}`}
                 </p>
                 {aplicandoId === d.id ? (
                   <span className="text-xs text-navy-400 flex-shrink-0">Aplicando…</span>
@@ -107,7 +107,7 @@ export default function DuplicidadeModal({ candidatoAtual, duplicatas, onFechar,
                   <ArrowRight size={14} className="text-navy-300 group-hover:text-navy-700 dark:group-hover:text-white flex-shrink-0" />
                 )}
               </div>
-              <p className="text-navy-500 dark:text-navy-400 text-xs mt-1">{resultadoResumo(d)}</p>
+              <p className="text-navy-500 dark:text-navy-400 text-xs mt-1">{ocultarResultados ? 'Resultados ocultos — libere pelo olho (com a senha) para ver.' : resultadoResumo(d)}</p>
             </button>
           ))}
         </div>

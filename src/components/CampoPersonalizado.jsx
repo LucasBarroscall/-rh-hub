@@ -6,7 +6,7 @@ import ComentarioCampo from './ComentarioCampo'
 // campos padrão: título editável, comentário com formatação e posição
 // (antes = logo abaixo do título; depois = abaixo do campo) e legendas nos botões.
 export default function CampoPersonalizado({ campo, valor, onChange, titulo, comentario, posicao = 'depois', legendas }) {
-  const rotulo = (titulo || campo.rotulo) + (campo.obrigatorio ? ' *' : '')
+  const rotulo = titulo || campo.rotulo
   const opcoes = campo.opcoes || []
 
   if (campo.tipo === 'sim_nao') {

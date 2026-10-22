@@ -2,7 +2,7 @@ import { useFecharComEsc } from '../lib/useModal'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
-import RespostasExtras from '../components/RespostasExtras'
+import CamposAdicionaisCandidato from '../components/CamposAdicionaisCandidato'
 import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
 import AvisoRepeticao from '../components/AvisoRepeticao'
 import FiltroResultado from '../components/FiltroResultado'
@@ -237,7 +237,7 @@ export default function Interviewer1() {
               </div>
 
               <AlertaReprovacaoAnterior duplicatas={duplicatas} />
-              <RespostasExtras candidato={selecionado} />
+              
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div className="flex items-start gap-2">
                   <Phone size={15} className="text-navy-400 mt-0.5" />
@@ -282,6 +282,7 @@ export default function Interviewer1() {
                   <span className="text-navy-400">Ensino superior: </span>
                   <span className="text-navy-700 dark:text-navy-200">{simNaoOuVazio(selecionado.possui_ensino_superior)}</span>
                 </div>
+              <CamposAdicionaisCandidato candidato={selecionado} etapa={1} />
               </dl>
 
               {selecionado.observacoes && (

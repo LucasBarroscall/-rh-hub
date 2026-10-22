@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
+import ChipDocumento from '../components/ChipDocumento'
+import SeletorCor from '../components/SeletorCor'
 import AbaCandidatos from '../components/admin/AbaCandidatos'
 import AbaLog from '../components/admin/AbaLog'
 import AbaCamposFormulario from '../components/admin/AbaCamposFormulario'
@@ -277,6 +279,7 @@ function AbaListas() {
   const [itens, setItens] = useState([])
   const [loading, setLoading] = useState(true)
   const [novoValor, setNovoValor] = useState('')
+  const [novaCor, setNovaCor] = useState('#2f4c73')
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [editando, setEditando] = useState(null)
@@ -305,7 +308,7 @@ function AbaListas() {
     const proximaOrdem = itens.length ? Math.max(...itens.map((i) => i.ordem)) + 1 : 1
     const { error } = await supabase
       .from('opcoes_lista')
-      .insert({ campo: campoAtivo, valor: novoValor.trim(), ordem: proximaOrdem })
+      .insert({ campo: campoAtivo, valor: novoValor.trim(), ordem: proximaOrdem, ...(campoAtivo === 'documento' ? { cor: novaCor } : {}) })
     setSalvando(false)
     if (!error) {
       setNovoValor('')
@@ -370,13 +373,14 @@ function AbaListas() {
         ))}
       </div>
 
-      <form onSubmit={adicionar} className="flex gap-2 mb-2 max-w-md">
+      <form onSubmit={adicionar} className="flex flex-wrap items-center gap-2 mb-2 max-w-md">
         <input
           className="field-input"
           placeholder="Nova opção…"
           value={novoValor}
           onChange={(e) => setNovoValor(e.target.value)}
         />
+        {campoAtivo === 'documento' && <SeletorCor valor={novaCor} onChange={setNovaCor} />}
         <button type="submit" disabled={salvando} className="btn-primary flex-shrink-0">
           Adicionar
         </button>
@@ -391,7 +395,7 @@ function AbaListas() {
           itens.map((item, i) => (
             <div key={item.id} className="flex items-center justify-between px-4 py-3 gap-3">
               <span className="text-sm text-navy-800 dark:text-navy-100 flex items-center gap-2">
-                {item.valor}
+                {campoAtivo === 'documento' ? <ChipDocumento nome={item.valor} cor={item.cor} /> : item.valor}
                 {campoAtivo === 'fonte' && item.tipo_dependencia && item.tipo_dependencia !== 'nenhum' && (
                   <span className="pill bg-navy-100 dark:bg-navy-800 text-navy-600 dark:text-navy-300 text-[10px]">
                     {item.tipo_dependencia === 'texto' ? 'Texto' : 'Lista'}

@@ -6,6 +6,7 @@ import { buscarTodos } from '../../lib/buscarTodos'
 import { formatarData, etapaFunil, corEtapa } from '../../lib/candidato'
 import { useRegrasTeste } from '../../lib/regrasTeste'
 import { useCamposFormulario } from '../../lib/useCamposFormulario'
+import { useOpcoes } from '../../lib/useOpcoes'
 import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
 import EditorCandidato from '../EditorCandidato'
 import ChipResultado from '../ChipResultado'
@@ -67,6 +68,7 @@ export default function AbaCandidatos() {
   const inputArquivoRef = useRef(null)
   const { regras } = useRegrasTeste()
   const { customizados } = useCamposFormulario()
+  const { opcoes } = useOpcoes()
 
   // A busca e os filtros valem para TODO o banco (não só para a página atual).
   const montarQuery = useCallback(
@@ -147,14 +149,17 @@ export default function AbaCandidatos() {
     if (error) return
     const sem = data.map((c) => {
       // eslint-disable-next-line no-unused-vars
-      const { idade, updated_at, cpf_digitos, ...resto } = c
-      return resto
+      const { idade, updated_at, cpf_digitos, documentos, respostas_extras, ...resto } = c
+      // documentos e campos adicionais viram colunas (mesmo formato que a importação lê)
+      const docs = Object.fromEntries((opcoes.documento || []).map((n) => [n, documentos && documentos[n] === 'enviado' ? 'Enviado' : documentos && documentos[n] === 'na' ? 'Não se aplica' : '']))
+      const extras = Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? '']))
+      return { ...resto, ...docs, ...extras }
     })
     baixarArquivo(Papa.unparse(sem), `candidatos_${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   function baixarModelo() {
-    const linha = Object.fromEntries([...COLUNAS_MODELO, ...customizados.map((cf) => cf.rotulo)].map((c) => [c, EXEMPLO[c] ?? '']))
+    const linha = Object.fromEntries([...COLUNAS_MODELO, ...(opcoes.documento || []), ...customizados.map((cf) => cf.rotulo)].map((c) => [c, EXEMPLO[c] ?? '']))
     baixarArquivo(Papa.unparse([linha]), 'modelo_importacao_candidatos.csv')
   }
 
@@ -170,7 +175,7 @@ export default function AbaCandidatos() {
         const validas = []
         const avisos = []
         res.data.forEach((linha, i) => {
-          const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados)
+          const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados, opcoes.documento || [])
           if (ok) validas.push(ok)
           else avisos.push(`Linha ${i + 2}: ${aviso}`)
         })

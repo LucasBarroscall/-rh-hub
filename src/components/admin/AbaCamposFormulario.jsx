@@ -105,6 +105,9 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
     placeholder: campo?.placeholder || '',
     condCampo: campo?.condicao?.campo || '',
     condValores: campo?.condicao?.valores || [],
+    exibModo: campo?.exibicao?.modo ?? null,
+    exibValores: campo?.exibicao?.valores || [],
+    exibEtapas: campo?.exibicao?.etapas || [1, 2, 3],
   })
   const [comentario, setComentario] = useState('')
   const [posicao, setPosicao] = useState('depois')
@@ -165,6 +168,22 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
       return { ...s, opcoes: novo }
     })
   }
+  // Exibição para os entrevistadores (sem configuração = padrão: Sim/Não só quando "Sim"; demais tipos não aparecem)
+  const ehSimNao = f.tipo === 'sim_nao'
+  const modoEfetivo = f.exibModo ?? (ehSimNao ? 'quando' : 'nunca')
+  const valoresEfetivos = f.exibModo ? f.exibValores : ehSimNao ? ['Sim'] : []
+  const opcoesExibicao = ehSimNao ? ['Sim', 'Não'] : f.opcoes.map((o) => o.valor.trim()).filter(Boolean)
+  const permiteQuando = ehSimNao || ['selecao', 'lista', 'multipla'].includes(f.tipo)
+  function definirExibicao(campos) {
+    setF((s) => ({ ...s, exibModo: s.exibModo ?? modoEfetivo, exibValores: s.exibModo ? s.exibValores : valoresEfetivos, ...campos }))
+  }
+  function alternarExibValor(v) {
+    definirExibicao({ exibModo: 'quando', exibValores: valoresEfetivos.includes(v) ? valoresEfetivos.filter((x) => x !== v) : [...valoresEfetivos, v] })
+  }
+  function alternarEtapa(n) {
+    definirExibicao({ exibEtapas: f.exibEtapas.includes(n) ? f.exibEtapas.filter((x) => x !== n) : [...f.exibEtapas, n].sort() })
+  }
+
   function alternarValor(v) {
     setF((s) => ({ ...s, condValores: s.condValores.includes(v) ? s.condValores.filter((x) => x !== v) : [...s.condValores, v] }))
   }
@@ -177,12 +196,15 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
     const opcoes = comOpcoes ? f.opcoes.map((o) => o.valor.trim()).filter(Boolean) : []
     if (comOpcoes && opcoes.length < 2) return setErro('Informe ao menos 2 opções.')
     if (f.condCampo && f.condValores.length === 0) return setErro('Escolha em quais respostas este campo deve aparecer.')
+    if (modoEfetivo === 'quando' && valoresEfetivos.length === 0) return setErro('Escolha para quais respostas o campo aparece aos entrevistadores.')
+    if (modoEfetivo !== 'nunca' && f.exibEtapas.length === 0) return setErro('Escolha ao menos uma etapa em que o campo aparece aos entrevistadores.')
     const dados = {
       rotulo,
       tipo: f.tipo,
       opcoes,
-      obrigatorio: f.obrigatorio,
+      obrigatorio: true,
       placeholder: f.placeholder.trim() || null,
+      exibicao: f.exibModo ? { modo: f.exibModo, valores: f.exibModo === 'quando' ? f.exibValores : [], etapas: f.exibEtapas } : null,
       condicao: f.condCampo ? { campo: f.condCampo, valores: f.condValores } : null,
     }
     setSalvando(true)
@@ -302,11 +324,6 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-navy-600 dark:text-navy-300">
-            <input type="checkbox" checked={f.obrigatorio} onChange={(e) => setF({ ...f, obrigatorio: e.target.checked })} />
-            Resposta obrigatória (só quando o campo estiver visível)
-          </label>
-
           <div className="rounded-lg border border-navy-100 dark:border-navy-800 p-4">
             <p className="text-sm font-medium text-navy-800 dark:text-navy-100 flex items-center gap-1.5 mb-2">
               <GitBranch size={15} className="text-navy-400" /> Mostrar somente quando…
@@ -343,6 +360,52 @@ function EditorCampoModal({ campo, lista, proximaOrdem, aoFechar, aoSalvar }) {
                   ))}
                   {controlador.opcoes.length === 0 && <span className="text-xs text-navy-400">Esse campo ainda não tem opções cadastradas.</span>}
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-navy-100 dark:border-navy-800 p-4">
+            <p className="text-sm font-medium text-navy-800 dark:text-navy-100 mb-1">Aparece para os entrevistadores?</p>
+            <p className="text-xs text-navy-400 mb-3">
+              A resposta só aparece nas telas das etapas se você permitir aqui. Todo campo adicional é obrigatório para quem preenche o cadastro.
+            </p>
+            <div className="space-y-1.5 mb-3">
+              {[
+                ['nunca', 'Nunca'],
+                ['sempre', 'Sempre que houver resposta'],
+                ...(permiteQuando ? [['quando', 'Somente quando a resposta for…']] : []),
+              ].map(([v, l]) => (
+                <label key={v} className="flex items-center gap-2 text-sm text-navy-700 dark:text-navy-200">
+                  <input type="radio" checked={modoEfetivo === v} onChange={() => definirExibicao({ exibModo: v })} /> {l}
+                </label>
+              ))}
+            </div>
+            {modoEfetivo === 'quando' && permiteQuando && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {opcoesExibicao.map((v) => (
+                  <button
+                    type="button"
+                    key={v}
+                    onClick={() => alternarExibValor(v)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      valoresEfetivos.includes(v)
+                        ? 'border-navy-700 bg-navy-700 text-white'
+                        : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+            {modoEfetivo !== 'nunca' && (
+              <div className="flex flex-wrap items-center gap-4 text-sm text-navy-700 dark:text-navy-200">
+                <span className="text-xs text-navy-500 dark:text-navy-400">Em quais etapas:</span>
+                {[1, 2, 3].map((n) => (
+                  <label key={n} className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={f.exibEtapas.includes(n)} onChange={() => alternarEtapa(n)} /> Etapa {n}
+                  </label>
+                ))}
               </div>
             )}
           </div>
@@ -498,7 +561,7 @@ export default function AbaCamposFormulario() {
                 </div>
                 <div className="flex-1 min-w-[180px]">
                   <p className="text-sm font-medium text-navy-900 dark:text-white">
-                    {c.rotulo} {c.obrigatorio && <span className="pill bg-clay-500/10 text-clay-600 ml-1">obrigatório</span>}
+                    {c.rotulo}
                   </p>
                   <p className="text-xs text-navy-400">
                     {TIPOS_CAMPO.find(([t]) => t === c.tipo)?.[1] || c.tipo}

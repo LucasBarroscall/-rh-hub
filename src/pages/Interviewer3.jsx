@@ -3,13 +3,14 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { buscarTodos } from '../lib/buscarTodos'
 import Layout from '../components/Layout'
-import RespostasExtras from '../components/RespostasExtras'
+import CamposAdicionaisCandidato from '../components/CamposAdicionaisCandidato'
 import ChipResultado from '../components/ChipResultado'
 import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
 import AvisoRepeticao from '../components/AvisoRepeticao'
 import FiltroResultado from '../components/FiltroResultado'
 import { opcoesResultado } from '../lib/resultados'
 import BotaoCopiar from '../components/BotaoCopiar'
+import ChipDocumento from '../components/ChipDocumento'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -18,7 +19,7 @@ import { useDuplicidade } from '../lib/useDuplicidade'
 import { useRegrasTeste } from '../lib/regrasTeste'
 import { useComentarios } from '../lib/useComentarios'
 import { useOpcoes } from '../lib/useOpcoes'
-import { simNaoOuVazio, etapa3Completa } from '../lib/candidato'
+import { simNaoOuVazio, etapa3Completa, formatarData, estadoExame, camposDoExame } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
 import { resumoDocumentos } from '../lib/documentos'
 import { OPCOES_COMPLIANCE, hojeISO } from '../lib/cadastro'
@@ -35,6 +36,8 @@ const FILTROS_ETAPA = [
   { id: 'Compareceu no Exame', label: 'Compareceu no exame (aguardando resultado)' },
   { id: 'Aprovado no Exame', label: 'Aprovado no exame (aguardando onboarding)' },
   { id: 'Exame atrasado', label: 'Exame atrasado' },
+  { id: 'Reprovado no exame', label: 'Reprovado no exame' },
+  { id: 'Não compareceu no exame', label: 'Não compareceu no exame' },
   { id: 'Data do Onboarding', label: 'Onboarding marcado' },
   { id: 'Onboarding', label: 'Onboarding feito (aguardando treinamento)' },
   { id: 'Data do Treinamento', label: 'Treinamento marcado' },
@@ -53,6 +56,33 @@ function CampoComData({ label, valor, data, onMudarValor, onMudarData, disabled,
         <div className="mt-2">
           <input type="date" className="field-input py-1.5 text-sm" value={data ?? ''} onChange={(e) => onMudarData(e.target.value || null)} />
         </div>
+      )}
+    </div>
+  )
+}
+
+function ResultadoExame({ candidato, disabled, onSelecionar }) {
+  const atual = estadoExame(candidato)
+  const cor = (op) =>
+    atual === op
+      ? op === 'Sim'
+        ? 'border-sage-500 bg-sage-500 text-white'
+        : op === 'Não'
+          ? 'border-clay-500 bg-clay-500 text-white'
+          : 'border-amber-500 bg-amber-400 text-navy-900'
+      : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
+  return (
+    <div>
+      <p className="field-label">Aprovado no exame?</p>
+      <div className="grid grid-cols-3 gap-2">
+        {['Sim', 'Não', 'Não compareceu'].map((op) => (
+          <button key={op} type="button" disabled={disabled} onClick={() => onSelecionar(op)} className={`rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${cor(op)}`}>
+            {op}
+          </button>
+        ))}
+      </div>
+      {atual === 'Sim' && candidato.data_aprovacao_exame && (
+        <p className="text-xs text-sage-600 mt-1.5">Aprovado em {formatarData(candidato.data_aprovacao_exame)}</p>
       )}
     </div>
   )
@@ -80,7 +110,7 @@ export default function Interviewer3() {
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar, reabrirOpcoes } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
   const { regras } = useRegrasTeste()
-  const { opcoes } = useOpcoes()
+  const { opcoes, cores } = useOpcoes()
   const listaDocs = opcoes.documento || []
 
   const carregar = useCallback(async () => {
@@ -135,6 +165,12 @@ export default function Interviewer3() {
     atualizar({ contatado_whatsapp: v, data_contato_whatsapp: v ? hojeISO() : null })
   }
 
+  // Resultado do exame: Sim (grava a data da aprovação), Não ou Não compareceu; clicar de novo limpa.
+  function definirResultadoExame(op) {
+    const novo = estadoExame(selecionado) === op ? '' : op
+    atualizar(camposDoExame(novo, hojeISO()))
+  }
+
   // Alô realizado = processo finalizado com sucesso (não existe mais "aprovação final").
   function marcarAlo(v) {
     atualizar({ compareceu_alo: v, data_alo: v ? hojeISO() : null }, { avancar: true })
@@ -146,6 +182,7 @@ export default function Interviewer3() {
     const ok = await atualizar({
       documentos: docs,
       enviou_documentacao: completo ? true : null,
+      aprovado_documentacao: completo ? true : null,
       data_envio_documentacao: completo ? selecionado.data_envio_documentacao || hojeISO() : null,
     })
     if (ok) setMostrarDocs(false)
@@ -217,10 +254,12 @@ export default function Interviewer3() {
                     WPM {c.wpm ?? '—'} · Precisão {c.precisao ?? '—'}%{c.resultado_teste ? ` · ${c.resultado_teste}` : ''}
                   </p>
                   {r.aplicaveis > 0 && r.faltantes.length > 0 && (
-                    <p className="text-[11px] text-clay-600 mt-0.5 truncate">
-                      Faltam: {r.faltantes.slice(0, 2).join(', ')}
-                      {r.faltantes.length > 2 ? ` +${r.faltantes.length - 2}` : ''}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      {r.faltantes.slice(0, 3).map((n) => (
+                        <ChipDocumento key={n} nome={n} cor={cores.documento && cores.documento[n]} pequeno />
+                      ))}
+                      {r.faltantes.length > 3 && <span className="text-[11px] text-navy-400">+{r.faltantes.length - 3}</span>}
+                    </div>
                   )}
                 </button>
               )
@@ -290,7 +329,7 @@ export default function Interviewer3() {
               )}
 
               <AlertaReprovacaoAnterior duplicatas={duplicatas} />
-              <RespostasExtras candidato={selecionado} />
+              
               <dl className="grid sm:grid-cols-2 gap-4 text-sm mb-6">
                 <div>
                   <span className="text-navy-400">Entrevista: </span>
@@ -319,8 +358,11 @@ export default function Interviewer3() {
                   <span className="text-navy-700 dark:text-navy-200">
                     {selecionado.logradouro}, {selecionado.numero}
                     {selecionado.complemento ? ` - ${selecionado.complemento}` : ''}, {selecionado.bairro}, {selecionado.cidade}
+                    {selecionado.estado ? `/${selecionado.estado}` : ''}
+                    {selecionado.cep ? ` — CEP ${selecionado.cep}` : ''}
                   </span>
                 </div>
+              <CamposAdicionaisCandidato candidato={selecionado} etapa={3} />
               </dl>
 
               <div className="pt-5 border-t border-navy-100 dark:border-navy-800">
@@ -359,14 +401,6 @@ export default function Interviewer3() {
                     disabled={salvando}
                     comentario={comentarios.documentacao_solicitada}
                   />
-                  <BoolToggle
-                    label="Aprovado na documentação?"
-                    value={selecionado.aprovado_documentacao}
-                    onChange={(v) => atualizar({ aprovado_documentacao: v })}
-                    disabled={salvando}
-                    semantic
-                    comentario={comentarios.aprovado_documentacao}
-                  />
                 </div>
 
                 <div className="rounded-lg border border-navy-100 dark:border-navy-800 p-3.5 mt-4">
@@ -382,10 +416,17 @@ export default function Interviewer3() {
                   <p className="text-xs text-navy-500 dark:text-navy-400">
                     {resumoSel.pct == null
                       ? 'Nenhum documento aplicável.'
-                      : `${resumoSel.enviados} de ${resumoSel.aplicaveis} (${resumoSel.pct}%)${
-                          resumoSel.faltantes.length ? ` · Faltam: ${resumoSel.faltantes.join(', ')}` : ' · Tudo enviado'
-                        }`}
+                      : `${resumoSel.enviados} de ${resumoSel.aplicaveis} (${resumoSel.pct}%)${resumoSel.faltantes.length === 0 ? ' · Tudo enviado' : ''}`}
+                    {resumoSel.pct === 100 && selecionado.data_envio_documentacao ? ` · documentação completa em ${formatarData(selecionado.data_envio_documentacao)}` : ''}
                   </p>
+                  {resumoSel.faltantes.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-xs text-navy-400">Faltam:</span>
+                      {resumoSel.faltantes.map((n) => (
+                        <ChipDocumento key={n} nome={n} cor={cores.documento && cores.documento[n]} />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-4">
@@ -427,8 +468,7 @@ export default function Interviewer3() {
                       onBlur={() => atualizar({ data_exame: dataExame || null })}
                     />
                   </div>
-                  <BoolToggle label="Compareceu no exame?" value={selecionado.compareceu_exame} onChange={(v) => atualizar({ compareceu_exame: v })} disabled={salvando} comentario={comentarios.compareceu_exame} />
-                  <BoolToggle label="Aprovado no exame?" value={selecionado.aprovado_exame} onChange={(v) => atualizar({ aprovado_exame: v })} disabled={salvando} semantic comentario={comentarios.aprovado_exame} />
+                  <ResultadoExame candidato={selecionado} disabled={salvando} onSelecionar={definirResultadoExame} />
                 </div>
               </div>
 
@@ -532,7 +572,7 @@ export default function Interviewer3() {
           />
         )}
         {mostrarDocs && selecionado && (
-          <DocumentosModal candidato={selecionado} lista={listaDocs} salvando={salvando} onClose={() => setMostrarDocs(false)} onSalvar={salvarDocumentos} />
+          <DocumentosModal candidato={selecionado} lista={listaDocs} cores={cores.documento} salvando={salvando} onClose={() => setMostrarDocs(false)} onSalvar={salvarDocumentos} />
         )}
       </div>
     </Layout>

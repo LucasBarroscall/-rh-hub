@@ -76,3 +76,21 @@ export function formatarDisponibilidadeExibicao(valor) {
   if (partes.length >= 4) return 'Disponibilidade Total'
   return valor
 }
+
+// Resultado do exame: um só controle com 3 opções.
+//   Sim            => compareceu + aprovado (grava a data da aprovação)
+//   Não            => compareceu + reprovado
+//   Não compareceu => não compareceu
+export function estadoExame(c) {
+  if (c.compareceu_exame === false) return 'Não compareceu'
+  if (c.aprovado_exame === true) return 'Sim'
+  if (c.aprovado_exame === false) return 'Não'
+  return ''
+}
+
+export function camposDoExame(opcao, hojeISO) {
+  if (opcao === 'Sim') return { aprovado_exame: true, compareceu_exame: true, data_aprovacao_exame: hojeISO }
+  if (opcao === 'Não') return { aprovado_exame: false, compareceu_exame: true, data_aprovacao_exame: null }
+  if (opcao === 'Não compareceu') return { aprovado_exame: null, compareceu_exame: false, data_aprovacao_exame: null }
+  return { aprovado_exame: null, compareceu_exame: null, data_aprovacao_exame: null }
+}

@@ -14,6 +14,7 @@ export const CAMPOS_SIMPLES = [
 export function useOpcoes() {
   const [opcoes, setOpcoes] = useState({})
   const [fontes, setFontes] = useState([])
+  const [cores, setCores] = useState({})
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async () => {
@@ -30,6 +31,16 @@ export function useOpcoes() {
         .filter((o) => CAMPOS_SIMPLES.includes(o.campo))
         .forEach((o) => agrupado[o.campo].push(o.valor))
       setOpcoes(agrupado)
+
+      // cor de cada opção (usada nos documentos): { campo: { valor: '#hex' } }
+      const coresPorCampo = {}
+      listaData
+        .filter((o) => CAMPOS_SIMPLES.includes(o.campo) && o.cor)
+        .forEach((o) => {
+          if (!coresPorCampo[o.campo]) coresPorCampo[o.campo] = {}
+          coresPorCampo[o.campo][o.valor] = o.cor
+        })
+      setCores(coresPorCampo)
 
       const subPorPai = {}
       if (!subErro && subData) {
@@ -52,5 +63,5 @@ export function useOpcoes() {
     carregar()
   }, [carregar])
 
-  return { opcoes, fontes, carregando, recarregar: carregar }
+  return { opcoes, fontes, cores, carregando, recarregar: carregar }
 }

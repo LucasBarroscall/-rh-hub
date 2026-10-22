@@ -7,6 +7,8 @@ import { useCamposFormulario } from '../lib/useCamposFormulario'
 import { useCepEndereco } from '../lib/useCepEndereco'
 import { useRegrasTeste, avaliarTeste } from '../lib/regrasTeste'
 import { calcularResultadoFinal } from '../lib/resultados'
+import { exibeParaEntrevistador } from '../lib/camposPersonalizados'
+import { estadoExame, camposDoExame } from '../lib/candidato'
 import { candidatoParaForm, validarCadastroDetalhado, montarPayload, OPCOES_COMPLIANCE } from '../lib/cadastro'
 import CamposCadastro from './CamposCadastro'
 import BoolToggle from './BoolToggle'
@@ -21,6 +23,7 @@ const DATAS_FUNIL = [
   ['data_onboarding', 'Data do onboarding'],
   ['data_treinamento', 'Data do treinamento'],
   ['data_alo', 'Data do Alô'],
+  ['data_aprovacao_exame', 'Data da aprovação no exame'],
 ]
 
 const numeroOuNull = (v) => (v === '' || v == null ? null : Math.round(Number(v)))
@@ -36,6 +39,8 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
   const [erroCampo, setErroCampo] = useState(null)
   const { opcoes, fontes } = useOpcoes()
   const { customizados, ocultos } = useCamposFormulario()
+  // entrevistador só vê os campos adicionais que o analista liberou; o analista vê todos
+  const customizadosEditor = podeExcluir ? customizados : customizados.filter((c) => exibeParaEntrevistador(c, ((form && form.respostas_extras) || {})[c.chave], null))
   const { regras } = useRegrasTeste()
   const cep = useCepEndereco(setForm, candidato.logradouro ? 'auto' : 'pendente')
 
@@ -113,7 +118,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
           setForm={setForm}
           opcoes={opcoes}
           fontes={fontes}
-          customizados={customizados}
+          customizados={customizadosEditor}
           ocultos={ocultos}
           cep={cep}
           avisar={setToast}
@@ -202,10 +207,6 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
               ['teste_realizado', 'Realizou o teste de digitação?', null],
               ['contatado_whatsapp', 'Contatado via WhatsApp?', 'data_contato_whatsapp'],
               ['documentacao_solicitada', 'Documentação solicitada?', 'data_documentacao_solicitada'],
-              ['enviou_documentacao', 'Documentação completa enviada?', 'data_envio_documentacao'],
-              ['aprovado_documentacao', 'Aprovado na documentação?', null],
-              ['compareceu_exame', 'Compareceu no exame?', null],
-              ['aprovado_exame', 'Aprovado no exame?', null],
               ['compareceu_onboarding', 'Compareceu no onboarding?', 'data_onboarding'],
               ['compareceu_treinamento', 'Compareceu no treinamento?', 'data_treinamento'],
               ['compareceu_alo', 'Alô realizado? (finaliza o processo com sucesso)', 'data_alo'],
@@ -222,6 +223,20 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
                 }}
               />
             ))}
+          </div>
+
+          <div className="mb-4">
+            <label className="field-label">Aprovado no exame?</label>
+            <select
+              className="field-select"
+              value={estadoExame(form)}
+              onChange={(e) => setForm((f) => ({ ...f, ...camposDoExame(e.target.value, new Date().toISOString().slice(0, 10)) }))}
+            >
+              <option value="">—</option>
+              <option value="Sim">Sim</option>
+              <option value="Não">Não</option>
+              <option value="Não compareceu">Não compareceu</option>
+            </select>
           </div>
 
           <div>

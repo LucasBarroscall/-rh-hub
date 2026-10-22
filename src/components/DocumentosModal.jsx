@@ -2,6 +2,7 @@ import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useState } from 'react'
 import { X, FileText } from 'lucide-react'
 import { resumoDocumentos } from '../lib/documentos'
+import ChipDocumento from './ChipDocumento'
 
 const ESTADOS = [
   ['pendente', 'Pendente'],
@@ -9,7 +10,7 @@ const ESTADOS = [
   ['na', 'Não se aplica'],
 ]
 
-export default function DocumentosModal({ candidato, lista, onClose, onSalvar, salvando }) {
+export default function DocumentosModal({ candidato, lista, onClose, onSalvar, salvando, cores }) {
   useFecharComEsc(onClose)
   const [docs, setDocs] = useState({ ...(candidato.documentos || {}) })
 
@@ -56,7 +57,9 @@ export default function DocumentosModal({ candidato, lista, onClose, onSalvar, s
         <div className="space-y-3">
           {lista.map((nome) => (
             <div key={nome} className="rounded-lg border border-navy-100 dark:border-navy-800 p-3">
-              <p className="text-sm font-medium text-navy-800 dark:text-navy-100 mb-2">{nome}</p>
+              <p className="mb-2">
+                <ChipDocumento nome={nome} cor={cores && cores[nome]} />
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 {ESTADOS.map(([estado, rotulo]) => {
                   const atual = docs[nome] || 'pendente'

@@ -48,6 +48,8 @@ export function statusAtual(c) {
   if (c.aprovado_entrevista === false) return 'Reprovado na entrevista'
   if (c.aprovado_teste === false) return 'Reprovado no teste'
   if (c.decisao_final === 'Reprovado') return 'Reprovado'
+  if (c.compareceu_exame === true && c.aprovado_exame === false) return 'Reprovado no exame'
+  if (c.compareceu_exame === false) return 'Não compareceu no exame'
   if (exameAtrasado(c)) return 'Exame atrasado'
 
   let atual = ETAPAS_FUNIL[0]
@@ -59,6 +61,7 @@ export function statusAtual(c) {
 }
 
 export function corStatus(status) {
+  if (status.includes('Não compareceu')) return 'bg-clay-500/15 text-clay-600'
   if (status.includes('Reprovado')) return 'bg-clay-500/15 text-clay-600'
   if (status === 'Exame atrasado') return 'bg-clay-500/15 text-clay-600'
   if (status === 'Entrega Realizada') return 'bg-sage-500/15 text-sage-600'
@@ -103,7 +106,7 @@ export function aprovadoFinal(c) {
   return c.compareceu_alo === true
 }
 export function reprovadoGeral(c) {
-  return c.aprovado_entrevista === false || c.aprovado_teste === false || c.decisao_final === 'Reprovado'
+  return c.aprovado_entrevista === false || c.aprovado_teste === false || c.decisao_final === 'Reprovado' || (c.compareceu_exame === true && c.aprovado_exame === false)
 }
 export function decididoFinal(c) {
   return aprovadoFinal(c) || reprovadoGeral(c)
