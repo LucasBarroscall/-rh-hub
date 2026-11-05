@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import Papa from 'papaparse'
+import { baixarXlsx, objetosParaAba } from '../lib/xlsx'
 import { Search, Download, ChevronLeft, ChevronRight, Database } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { buscarTodos } from '../lib/buscarTodos'
@@ -11,6 +11,7 @@ import { resumoDocumentos } from '../lib/documentos'
 import Layout from '../components/Layout'
 import EditorCandidato from '../components/EditorCandidato'
 import ChipResultado from '../components/ChipResultado'
+import ChipCompliance from '../components/ChipCompliance'
 import FiltroResultado from '../components/FiltroResultado'
 import { opcoesResultado } from '../lib/resultados'
 import { useRegrasTeste } from '../lib/regrasTeste'
@@ -85,19 +86,24 @@ export default function BancoTalentos() {
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / LINHAS_POR_PAGINA))
   const visiveis = filtrados.slice(pagina * LINHAS_POR_PAGINA, (pagina + 1) * LINHAS_POR_PAGINA)
 
-  function exportar() {
+  async function exportar() {
     const linhas = filtrados.map((c) => {
       // eslint-disable-next-line no-unused-vars
-      const { idade, updated_at, cpf_digitos, documentos, respostas_extras, ...resto } = c
-      return { ...resto, ...Object.fromEntries(listaDocs.map((n) => [n, documentos && documentos[n] === 'enviado' ? 'Enviado' : documentos && documentos[n] === 'na' ? 'Não se aplica' : ''])), ...Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? ''])) }
+      const { idade, updated_at, cpf_digitos, documentos, respostas_extras, compliance_dados, ...resto } = c
+      const cd = compliance_dados || {}
+      return {
+        ...resto,
+        ...Object.fromEntries(listaDocs.map((n) => [n, documentos && documentos[n] === 'enviado' ? 'Enviado' : documentos && documentos[n] === 'na' ? 'Não se aplica' : ''])),
+        ...Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? ''])),
+        'Compliance - Lote': cd.lote ?? '',
+        'Compliance - Data importação': cd.data_importacao ?? '',
+        'Compliance - Data consulta (Escavador)': cd.data_consulta ?? '',
+        'Compliance - OK/NOK Jurídico': cd.juridico ?? '',
+        'Compliance - OK/NOK Compliance': cd.ok_nok_compliance ?? '',
+        'Compliance - Status final': cd.status_final ?? '',
+      }
     })
-    const blob = new Blob(['\uFEFF' + Papa.unparse(linhas)], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `banco_de_talentos_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    await baixarXlsx([objetosParaAba('Banco de talentos', linhas)], `banco_de_talentos_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   const colunas = [
@@ -128,7 +134,12 @@ export default function BancoTalentos() {
       </div>
     ) : <span className="text-navy-300">—</span>)],
     ['Resultado final', (c) => <ChipResultado resultado={c.resultado_final} />],
-    ['Compliance', (c) => <Chip cor={c.compliance === 'Aprovado' ? '#5C8A6E' : c.compliance === 'Reprovado' ? '#C1594B' : '#D4A017'}>{c.compliance}</Chip>],
+    ['Compliance (status final)', (c) => <ChipCompliance status={c.compliance} />],
+    ['Compliance · Lote', (c) => (c.compliance_dados && c.compliance_dados.lote) || '—'],
+    ['Compliance · Data importação', (c) => (c.compliance_dados && c.compliance_dados.data_importacao) || '—'],
+    ['Compliance · Consulta Escavador', (c) => (c.compliance_dados && c.compliance_dados.data_consulta) || '—'],
+    ['Compliance · OK/NOK Jurídico', (c) => (c.compliance_dados && c.compliance_dados.juridico) || '—'],
+    ['Compliance · OK/NOK Compliance', (c) => (c.compliance_dados && c.compliance_dados.ok_nok_compliance) || '—'],
     ['Documentos', (c) => {
       const r = resumoDocumentos(c, listaDocs)
       return r.pct == null ? <span className="text-navy-300">—</span> : (

@@ -177,8 +177,8 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
               <input className="field-input" value={form.alerta_comportamental ?? ''} onChange={(e) => set('alerta_comportamental', e.target.value)} />
             </div>
             <div>
-              <label className="field-label">Compliance</label>
-              <select className="field-select" value={form.compliance ?? ''} onChange={(e) => set('compliance', e.target.value || null)}>
+              <label className="field-label">Compliance{podeExcluir ? '' : ' (somente o analista altera)'}</label>
+              <select className="field-select" disabled={!podeExcluir} value={form.compliance ?? ''} onChange={(e) => set('compliance', e.target.value || null)}>
                 <option value="">—</option>
                 {OPCOES_COMPLIANCE.map((o) => (
                   <option key={o} value={o}>

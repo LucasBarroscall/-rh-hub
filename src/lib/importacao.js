@@ -97,7 +97,10 @@ export function converterLinhaImportacao(linha, regras = [], customizados = [], 
     if (NORMALIZAR_COMPLETO.includes(col)) out[col] = normalizarTexto(v)
     else if (NORMALIZAR_LEVE.includes(col)) out[col] = v.toUpperCase()
     else if (col === 'estado') out[col] = v.toUpperCase().slice(0, 2)
-    else if (col === 'cpf') out[col] = v.replace(/\D/g, '').length === 11 ? maskCPF(v) : v
+    else if (col === 'cpf') {
+      const d = v.replace(/\D/g, '')
+      out[col] = d.length >= 6 && d.length <= 11 ? maskCPF(d.padStart(11, '0')) : v
+    }
     else if (col === 'telefone') out[col] = [10, 11].includes(v.replace(/\D/g, '').length) ? maskTelefone(v) : v
     else if (col === 'cep') out[col] = v.replace(/\D/g, '').length === 8 ? maskCEP(v) : v
     else out[col] = v

@@ -8,9 +8,11 @@ import ChipResultado from '../components/ChipResultado'
 import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
 import AvisoRepeticao from '../components/AvisoRepeticao'
 import FiltroResultado from '../components/FiltroResultado'
+import AlertaNok from '../components/AlertaNok'
 import { opcoesResultado } from '../lib/resultados'
 import BotaoCopiar from '../components/BotaoCopiar'
 import ChipDocumento from '../components/ChipDocumento'
+import ChipCompliance from '../components/ChipCompliance'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -245,7 +247,7 @@ export default function Interviewer3() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-navy-900 dark:text-white flex items-center gap-1.5 min-w-0">
-                      <span className="truncate">{c.nome_completo}</span>
+                      <span className="truncate">{c.nome_completo} <AlertaNok candidato={c} /></span>
                       {c.alerta_comportamental && <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />}
                     </p>
                     <BadgeDocs resumo={r} />
@@ -275,7 +277,7 @@ export default function Interviewer3() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-2 flex-wrap">
-                      {selecionado.nome_completo}
+                      {selecionado.nome_completo} <AlertaNok candidato={selecionado} />
                       {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
                       <BadgeDocs resumo={resumoSel} />
                     </h2>
@@ -431,27 +433,8 @@ export default function Interviewer3() {
 
                 <div className="mt-4">
                   <p className="field-label mb-1.5">Compliance</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {OPCOES_COMPLIANCE.map((op) => (
-                      <button
-                        key={op}
-                        type="button"
-                        disabled={salvando}
-                        onClick={() => atualizar({ compliance: selecionado.compliance === op ? null : op })}
-                        className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
-                          selecionado.compliance === op
-                            ? op === 'Aprovado'
-                              ? 'border-sage-500 bg-sage-500 text-white'
-                              : op === 'Reprovado'
-                                ? 'border-clay-500 bg-clay-500 text-white'
-                                : 'border-amber-500 bg-amber-400 text-navy-900'
-                            : 'border-navy-100 dark:border-navy-700 bg-white dark:bg-navy-900 text-navy-600 dark:text-navy-200 hover:bg-navy-50 dark:hover:bg-navy-800'
-                        }`}
-                      >
-                        {op}
-                      </button>
-                    ))}
-                  </div>
+                  <ChipCompliance status={selecionado.compliance} />
+                  <p className="text-[11px] text-navy-400 mt-1">O resultado vem da importação do Compliance e só o analista altera.</p>
                 </div>
               </div>
 

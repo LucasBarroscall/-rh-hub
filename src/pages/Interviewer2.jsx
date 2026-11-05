@@ -6,6 +6,7 @@ import CamposAdicionaisCandidato from '../components/CamposAdicionaisCandidato'
 import AlertaReprovacaoAnterior from '../components/AlertaReprovacaoAnterior'
 import AvisoRepeticao from '../components/AvisoRepeticao'
 import FiltroResultado from '../components/FiltroResultado'
+import AlertaNok from '../components/AlertaNok'
 import { opcoesResultado } from '../lib/resultados'
 import { buscarTodos } from '../lib/buscarTodos'
 import DuplicidadeModal from '../components/DuplicidadeModal'
@@ -223,7 +224,7 @@ export default function Interviewer2() {
                   selecionado?.id === c.id ? 'bg-navy-50 dark:bg-navy-800' : 'hover:bg-navy-50/60 dark:hover:bg-navy-800/60'
                 }`}
               >
-                <p className="text-sm font-medium text-navy-900 dark:text-white">{c.nome_completo}</p>
+                <p className="text-sm font-medium text-navy-900 dark:text-white">{c.nome_completo} <AlertaNok candidato={c} /></p>
                 <p className="text-xs text-navy-400 mt-0.5">{formatarData(c.data_entrevista)}</p>
               </button>
             ))}
@@ -238,7 +239,7 @@ export default function Interviewer2() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-navy-900 dark:text-white flex items-center gap-1.5">
-                      {selecionado.nome_completo}
+                      {selecionado.nome_completo} <AlertaNok candidato={selecionado} />
                       {duplicatas.length > 0 && <AlertTriangle size={15} className="text-amber-500" title="CPF já cadastrado antes" />}
                     </h2>
                     <p className="text-sm text-navy-500 dark:text-navy-400">{resultadoVisivel ? (selecionado.aprovado_entrevista === false ? 'Reprovado(a) na entrevista — faz o teste normalmente' : selecionado.aprovado_entrevista === true ? 'Aprovado(a) na entrevista' : 'Entrevista realizada') : 'Entrevista realizada'}</p>

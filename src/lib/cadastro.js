@@ -95,6 +95,7 @@ export function validarCadastroDetalhado(form, { fontes = [], customizados = [],
       return falha('Informe um CEP válido para localizar o endereço.', 'cep')
     }
     if (!(form.numero || '').trim()) return falha('Preencha o número do endereço.', 'numero')
+    if (!/^\d+$/.test(String(form.numero).trim())) return falha('O número do endereço deve ter apenas dígitos.', 'numero')
     if (!form.disponibilidade_horario_trabalho || form.disponibilidade_horario_trabalho === 'Nenhum horário selecionado') {
       return falha('Selecione ao menos um turno de disponibilidade de trabalho.', 'disponibilidade_horario_trabalho')
     }

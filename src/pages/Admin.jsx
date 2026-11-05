@@ -1,6 +1,5 @@
 import { useFecharComEsc, aoClicarFora } from '../lib/useModal'
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Papa from 'papaparse'
 import { supabase } from '../lib/supabaseClient'
 import Layout from '../components/Layout'
 import ChipDocumento from '../components/ChipDocumento'

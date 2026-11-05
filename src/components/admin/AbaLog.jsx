@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import Papa from 'papaparse'
+import { baixarXlsx, objetosParaAba } from '../../lib/xlsx'
 import { Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { buscarTodos } from '../../lib/buscarTodos'
@@ -97,13 +97,7 @@ export default function AbaLog() {
         .map((a) => (l.acao === 'UPDATE' ? `${a.campo}: ${fmt(a.antes)} → ${fmt(a.depois)}` : `${a.campo}: ${fmt(a.antes ?? a.depois)}`))
         .join(' | '),
     }))
-    const blob = new Blob(['\uFEFF' + Papa.unparse(linhas)], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `log_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    await baixarXlsx([objetosParaAba('Log', linhas)], `log_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 
   function alternar(id) {

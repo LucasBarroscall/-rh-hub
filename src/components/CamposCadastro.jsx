@@ -302,11 +302,12 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
             <label className="field-label">{titulos.numero || 'Número'}</label>
             <input
               ref={cep.numeroRef}
+              inputMode="numeric"
               className={`field-input ${erro('numero')}`}
               onFocus={() => limpar('numero')}
               value={form.numero}
               disabled={bloqueado || cep.carregando}
-              onChange={(e) => set('numero', e.target.value)}
+              onChange={(e) => set('numero', e.target.value.replace(/\D/g, ''))}
             />
           </div>
           <div className="flex flex-col">

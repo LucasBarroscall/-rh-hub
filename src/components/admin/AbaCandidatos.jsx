@@ -1,17 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Papa from 'papaparse'
-import { Search, Trash2, Download, Upload, FileDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Trash2, Download, Upload, FileDown, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { buscarTodos } from '../../lib/buscarTodos'
 import { formatarData, etapaFunil, corEtapa } from '../../lib/candidato'
 import { useRegrasTeste } from '../../lib/regrasTeste'
+import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
 import { useCamposFormulario } from '../../lib/useCamposFormulario'
 import { useOpcoes } from '../../lib/useOpcoes'
-import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
+import { baixarXlsx, lerAbaComoObjetos, objetosParaAba } from '../../lib/xlsx'
+import { opcoesResultado } from '../../lib/resultados'
 import EditorCandidato from '../EditorCandidato'
 import ChipResultado from '../ChipResultado'
 import FiltroResultado from '../FiltroResultado'
-import { opcoesResultado } from '../../lib/resultados'
+import ModalCompliance from './ModalCompliance'
 
 const EXEMPLO = {
   fonte: 'Indicação',
@@ -40,16 +41,6 @@ const EXEMPLO = {
   possui_ensino_superior: 'Não',
 }
 
-function baixarArquivo(conteudo, nome) {
-  const blob = new Blob(['\uFEFF' + conteudo], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nome
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function AbaCandidatos() {
   const [linhas, setLinhas] = useState([])
   const [total, setTotal] = useState(0)
@@ -65,6 +56,7 @@ export default function AbaCandidatos() {
   const [editando, setEditando] = useState(null)
   const [importando, setImportando] = useState(false)
   const [resultado, setResultado] = useState(null)
+  const [mostrarCompliance, setMostrarCompliance] = useState(false)
   const inputArquivoRef = useRef(null)
   const { regras } = useRegrasTeste()
   const { customizados } = useCamposFormulario()
@@ -144,59 +136,57 @@ export default function AbaCandidatos() {
     }
   }
 
-  async function exportarCSV() {
+  const nomeStamp = () => new Date().toISOString().slice(0, 10)
+
+  async function exportarXLSX() {
     const { data, error } = await buscarTodos(montarQuery(false))
     if (error) return
     const sem = data.map((c) => {
       // eslint-disable-next-line no-unused-vars
-      const { idade, updated_at, cpf_digitos, documentos, respostas_extras, ...resto } = c
-      // documentos e campos adicionais viram colunas (mesmo formato que a importação lê)
+      const { idade, updated_at, cpf_digitos, documentos, respostas_extras, compliance_dados, ...resto } = c
+      // documentos e campos adicionais viram colunas (no mesmo formato que a importação lê)
       const docs = Object.fromEntries((opcoes.documento || []).map((n) => [n, documentos && documentos[n] === 'enviado' ? 'Enviado' : documentos && documentos[n] === 'na' ? 'Não se aplica' : '']))
       const extras = Object.fromEntries(customizados.map((cf) => [cf.rotulo, (respostas_extras || {})[cf.chave] ?? '']))
       return { ...resto, ...docs, ...extras }
     })
-    baixarArquivo(Papa.unparse(sem), `candidatos_${new Date().toISOString().slice(0, 10)}.csv`)
+    await baixarXlsx([objetosParaAba('Candidatos', sem)], `candidatos_${nomeStamp()}.xlsx`)
   }
 
-  function baixarModelo() {
-    const linha = Object.fromEntries([...COLUNAS_MODELO, ...(opcoes.documento || []), ...customizados.map((cf) => cf.rotulo)].map((c) => [c, EXEMPLO[c] ?? '']))
-    baixarArquivo(Papa.unparse([linha]), 'modelo_importacao_candidatos.csv')
+  async function baixarModelo() {
+    const cols = [...COLUNAS_MODELO, ...(opcoes.documento || []), ...customizados.map((cf) => cf.rotulo)]
+    await baixarXlsx([{ nome: 'Candidatos', linhas: [cols, cols.map((c) => EXEMPLO[c] ?? '')] }], 'modelo_importacao_candidatos.xlsx')
   }
 
-  function importarCSV(e) {
+  async function importarXLSX(e) {
     const arquivo = e.target.files?.[0]
     if (!arquivo) return
     setImportando(true)
     setResultado(null)
-    Papa.parse(arquivo, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (res) => {
-        const validas = []
-        const avisos = []
-        res.data.forEach((linha, i) => {
-          const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados, opcoes.documento || [])
-          if (ok) validas.push(ok)
-          else avisos.push(`Linha ${i + 2}: ${aviso}`)
-        })
-        let inseridas = 0
-        const erros = []
-        for (let i = 0; i < validas.length; i += 200) {
-          const lote = validas.slice(i, i + 200)
-          const { error } = await supabase.from('candidatos').insert(lote)
-          if (error) erros.push(`Linhas ${i + 2} a ${i + lote.length + 1}: ${error.message}`)
-          else inseridas += lote.length
-        }
-        setImportando(false)
-        if (inputArquivoRef.current) inputArquivoRef.current.value = ''
-        setResultado({ inseridas, avisos, erros })
-        carregar()
-      },
-      error: (err) => {
-        setImportando(false)
-        setResultado({ inseridas: 0, avisos: [], erros: [err.message] })
-      },
-    })
+    try {
+      const lido = await lerAbaComoObjetos(await arquivo.arrayBuffer(), {})
+      if (!lido.encontrada || lido.linhas.length === 0) throw new Error('Não encontrei candidatos na planilha. A primeira linha precisa ter os cabeçalhos das colunas.')
+      const validas = []
+      const avisos = []
+      lido.linhas.forEach((linha) => {
+        const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados, opcoes.documento || [])
+        if (ok) validas.push(ok)
+        else avisos.push(`Linha ${linha.__linha}: ${aviso}`)
+      })
+      let inseridas = 0
+      const erros = []
+      for (let i = 0; i < validas.length; i += 200) {
+        const lote = validas.slice(i, i + 200)
+        const { error } = await supabase.from('candidatos').insert(lote)
+        if (error) erros.push(`Linhas ${i + 1} a ${i + lote.length} (da lista válida): ${error.message}`)
+        else inseridas += lote.length
+      }
+      setResultado({ inseridas, avisos, erros })
+      carregar()
+    } catch (err) {
+      setResultado({ inseridas: 0, avisos: [], erros: [err.message || 'Não foi possível ler a planilha.'] })
+    }
+    setImportando(false)
+    if (inputArquivoRef.current) inputArquivoRef.current.value = ''
   }
 
   return (
@@ -219,15 +209,18 @@ export default function AbaCandidatos() {
           <FiltroResultado valor={filtroResultado} onChange={(v) => { setFiltroResultado(v); setPagina(0) }} opcoes={opcoesResultado([], regras)} className="py-2 text-sm" />
         </div>
         <div className="flex gap-2 flex-wrap ml-auto">
+          <button onClick={() => setMostrarCompliance(true)} className="btn-secondary flex items-center gap-1.5">
+            <ShieldCheck size={15} /> Compliance
+          </button>
           <button onClick={baixarModelo} className="btn-secondary flex items-center gap-1.5">
             <FileDown size={15} /> Baixar modelo
           </button>
-          <button onClick={exportarCSV} className="btn-secondary flex items-center gap-1.5">
-            <Download size={15} /> Exportar CSV
+          <button onClick={exportarXLSX} className="btn-secondary flex items-center gap-1.5">
+            <Download size={15} /> Exportar XLSX
           </button>
           <label className="btn-secondary flex items-center gap-1.5 cursor-pointer">
-            <Upload size={15} /> {importando ? 'Importando…' : 'Importar CSV'}
-            <input ref={inputArquivoRef} type="file" accept=".csv" onChange={importarCSV} className="hidden" disabled={importando} />
+            <Upload size={15} /> {importando ? 'Importando…' : 'Importar XLSX'}
+            <input ref={inputArquivoRef} type="file" accept=".xlsx" onChange={importarXLSX} className="hidden" disabled={importando} />
           </label>
           {selecionados.size > 0 && (
             <button onClick={excluirSelecionados} className="btn-secondary text-clay-600 border-clay-500/30 flex items-center gap-1.5">
@@ -304,7 +297,7 @@ export default function AbaCandidatos() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-navy-500 dark:text-navy-400">
         <span>
-          {total.toLocaleString('pt-BR')} candidato(s) {buscaAplicada || de || ate ? 'nos filtros' : 'no banco'}
+          {total.toLocaleString('pt-BR')} candidato(s) {buscaAplicada || de || ate || filtroResultado ? 'nos filtros' : 'no banco'}
         </span>
         <div className="flex items-center gap-3">
           <select className="field-select py-1 text-xs w-auto" value={porPagina} onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(0) }}>
@@ -333,6 +326,14 @@ export default function AbaCandidatos() {
           onClose={() => setEditando(null)}
           onSaved={() => {
             setEditando(null)
+            carregar()
+          }}
+        />
+      )}
+      {mostrarCompliance && (
+        <ModalCompliance
+          onClose={() => {
+            setMostrarCompliance(false)
             carregar()
           }}
         />
