@@ -319,7 +319,7 @@ function PainelImportar() {
     setPrevia(null)
     setLendo(true)
     try {
-      const lido = await lerAbaComoObjetos(await arquivo.arrayBuffer(), { aba: ABA_RETORNO })
+      const lido = await lerAbaComoObjetos(await arquivo.arrayBuffer(), { aba: ABA_RETORNO, cabecalhos: ['CPF', 'STATUS FINAL'] })
       if (!lido.encontrada) throw new Error(`Não encontrei a aba "${ABA_RETORNO}". Abas do arquivo: ${lido.abas.join(', ') || '(nenhuma)'}.`)
       const r = prepararRetornoCompliance(lido.colunas, lido.linhas)
       if (r.erro) throw new Error(r.erro)
@@ -398,6 +398,10 @@ function PainelImportar() {
         <div className="mt-4 rounded-lg border border-navy-100 dark:border-navy-800 p-4">
           <p className="text-sm font-medium text-navy-800 dark:text-navy-100">{previa.arquivo}</p>
           <ul className="text-sm text-navy-600 dark:text-navy-300 mt-2 space-y-0.5">
+            <li>
+              <strong>{previa.validas.length + previa.outros.length + previa.invalidos.length}</strong> linha(s) com CPF lida(s)
+              {previa.validas[0] ? ` (ex.: ${previa.validas[0].cpf})` : ''}.
+            </li>
             <li>
               <strong>{totalOk}</strong> com STATUS FINAL <strong>OK</strong> (aprovados) e <strong>{totalNok}</strong> com <strong>NOK</strong> (reprovados) — serão gravados.
             </li>

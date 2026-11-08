@@ -1,6 +1,7 @@
 import { maskCPF, maskTelefone, maskCEP, normalizarTexto } from './formatters'
 import { avaliarTeste } from './regrasTeste'
 import { hojeISO } from './cadastro'
+import { normalizarTurnosTrabalho, normalizarTurnosTreinamento } from './turnos'
 
 // Colunas aceitas na importação (as que o banco calcula sozinho — id, idade,
 // cpf_digitos, updated_at — nunca são importadas).
@@ -16,6 +17,7 @@ export const COLUNAS_IMPORTAVEIS = [
   'compareceu_alo', 'tempo_preenchimento_segundos', 'rede_social', 'documentacao_solicitada',
   'data_documentacao_solicitada', 'data_envio_documentacao', 'data_onboarding', 'data_treinamento',
   'data_contato_whatsapp', 'data_alo', 'comentario_entrevistador1', 'produto', 'resultado_teste', 'aprovado_teste',
+  'matricula', 'vale', 'vale_via', 'chave_m',
 ]
 
 // Colunas que aparecem no modelo para download.
@@ -60,10 +62,61 @@ function parseBool(texto) {
 // Converte uma linha do CSV para o formato do banco. Campos vazios ficam de
 // fora (null/padrão do banco); texto vira MAIÚSCULO; datas aceitam dd/mm/aaaa.
 // created_at vazio => o banco usa a data/hora da importação.
+const semAcento = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+// "Nome Completo", "CPF", "Data de Nascimento"… viram o nome da coluna do banco (nome_completo, cpf, data_nascimento…)
+const normalizarChave = (k) => semAcento(k).toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+const ALIASES = {
+  nome: 'nome_completo',
+  nome_candidato: 'nome_completo',
+  candidato: 'nome_completo',
+  celular: 'telefone',
+  fone: 'telefone',
+  whatsapp: 'telefone',
+  nascimento: 'data_nascimento',
+  data_de_nascimento: 'data_nascimento',
+  mae: 'nome_mae',
+  nome_da_mae: 'nome_mae',
+  rua: 'logradouro',
+  e_mail: 'email',
+  via: 'vale_via',
+  via_do_vale: 'vale_via',
+  tipo_de_vale: 'vale',
+  chave: 'chave_m',
+}
+// Cabeçalhos que o leitor reconhece ao procurar a linha de títulos da planilha.
+export const NOMES_CABECALHO_IMPORTACAO = [...COLUNAS_IMPORTAVEIS, 'resultado_exame', 'endereco', ...Object.keys(ALIASES)]
+
+function normalizarVale(v) {
+  const t = semAcento(v).toUpperCase().trim()
+  if (t === 'VA' || t.startsWith('VALE ALIM') || t === 'ALIMENTACAO') return 'VA'
+  if (t === 'VR' || t.startsWith('VALE REF') || t === 'REFEICAO') return 'VR'
+  return null
+}
+
+function normalizarVia(v) {
+  const t = semAcento(v).toLowerCase().trim()
+  if (t.startsWith('1') || t.startsWith('primeira')) return '1ª via'
+  if (t.startsWith('2') || t.startsWith('segunda')) return '2ª via'
+  return null
+}
+
+// CPF em qualquer forma (000.000.000-00, 00000000000, número do Excel sem zeros à esquerda, com espaços…)
+// vira o padrão do banco: 000.000.000-00.
+export function normalizarCpfImportacao(v) {
+  let texto = String(v === null || v === undefined ? '' : v).trim()
+  if (/^\d+(\.\d+)?e\+?\d+$/i.test(texto)) texto = String(Math.round(Number(texto))) // 1.0071682503E10
+  const d = texto.replace(/\D/g, '')
+  return d.length >= 6 && d.length <= 11 ? maskCPF(d.padStart(11, '0')) : texto
+}
+
 export function converterLinhaImportacao(linha, regras = [], customizados = [], documentosLista = []) {
   const bruto = {}
   Object.keys(linha).forEach((k) => {
-    bruto[String(k).trim().toLowerCase()] = linha[k]
+    if (k === '__linha') return
+    const chave = normalizarChave(k)
+    const canonica = ALIASES[chave] || chave
+    if (bruto[canonica] === undefined || String(bruto[canonica]).trim() === '') bruto[canonica] = linha[k]
   })
   if (bruto.endereco && !bruto.logradouro) bruto.logradouro = bruto.endereco
 
@@ -97,13 +150,19 @@ export function converterLinhaImportacao(linha, regras = [], customizados = [], 
     if (NORMALIZAR_COMPLETO.includes(col)) out[col] = normalizarTexto(v)
     else if (NORMALIZAR_LEVE.includes(col)) out[col] = v.toUpperCase()
     else if (col === 'estado') out[col] = v.toUpperCase().slice(0, 2)
-    else if (col === 'cpf') {
-      const d = v.replace(/\D/g, '')
-      out[col] = d.length >= 6 && d.length <= 11 ? maskCPF(d.padStart(11, '0')) : v
-    }
+    else if (col === 'cpf') out[col] = normalizarCpfImportacao(v)
     else if (col === 'telefone') out[col] = [10, 11].includes(v.replace(/\D/g, '').length) ? maskTelefone(v) : v
     else if (col === 'cep') out[col] = v.replace(/\D/g, '').length === 8 ? maskCEP(v) : v
-    else out[col] = v
+    else if (col === 'disponibilidade_horario_trabalho') out[col] = normalizarTurnosTrabalho(v)
+    else if (col === 'disponibilidade_horario_treinamento') out[col] = normalizarTurnosTreinamento(v)
+    else if (col === 'matricula' || col === 'chave_m') out[col] = v.toUpperCase()
+    else if (col === 'vale') {
+      const x = normalizarVale(v)
+      if (x) out[col] = x
+    } else if (col === 'vale_via') {
+      const x = normalizarVia(v)
+      if (x) out[col] = x
+    } else out[col] = v
   })
 
   // Colunas com o título (ou a chave) de um campo personalizado entram em respostas_extras.

@@ -12,6 +12,8 @@ import { estadoExame, camposDoExame } from '../lib/candidato'
 import { candidatoParaForm, validarCadastroDetalhado, montarPayload, OPCOES_COMPLIANCE } from '../lib/cadastro'
 import CamposCadastro from './CamposCadastro'
 import BoolToggle from './BoolToggle'
+import CamposColaborador from './CamposColaborador'
+import { useAuth } from '../contexts/AuthContext'
 import Toast from './Toast'
 
 const DATAS_FUNIL = [
@@ -39,6 +41,9 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
   const [erroCampo, setErroCampo] = useState(null)
   const { opcoes, fontes } = useOpcoes()
   const { customizados, ocultos } = useCamposFormulario()
+  const { profile } = useAuth()
+  // matrícula, vale e chave M: só analista e Entrevistador 3 veem e preenchem
+  const podeColaborador = ['analista', 'entrevistador3'].includes(profile && profile.role)
   // entrevistador só vê os campos adicionais que o analista liberou; o analista vê todos
   const customizadosEditor = podeExcluir ? customizados : customizados.filter((c) => exibeParaEntrevistador(c, ((form && form.respostas_extras) || {})[c.chave], null))
   const { regras } = useRegrasTeste()
@@ -265,6 +270,13 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
             </div>
           </div>
         </div>
+
+        {podeColaborador && (
+          <div className="pt-5 mt-6 border-t border-navy-100 dark:border-navy-800">
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-4">Dados do colaborador</h3>
+            <CamposColaborador valores={form} desabilitado={salvando} onChange={(campos) => setForm((f) => ({ ...f, ...campos }))} />
+          </div>
+        )}
 
         {erro && <p className="text-sm text-clay-600 mt-4">{erro}</p>}
 

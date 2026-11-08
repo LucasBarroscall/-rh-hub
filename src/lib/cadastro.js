@@ -1,7 +1,10 @@
 import { estaVisivel, respostaVazia } from './camposPersonalizados'
+import { normalizarTurnosTrabalho, normalizarTurnosTreinamento } from './turnos'
 import { dataBRParaISO, isoParaDataBR, validarCPF, validarDataBR, normalizarTexto } from './formatters'
 
 export const OPCOES_TREINAMENTO = ['Manhã', 'Tarde', 'Total']
+// o que cada botão do treinamento grava no banco (mesmo padrão da importação/exportação)
+export const VALOR_TREINAMENTO = { Manhã: 'MANHÃ', Tarde: 'TARDE', Total: 'MANHÃ | TARDE' }
 export const OPCOES_ESCALA = ['6x1', '5x2', 'Ambos']
 export const OPCOES_COMPLIANCE = ['Aprovado', 'Reprovado', 'CPF não localizado']
 
@@ -131,6 +134,8 @@ export function montarPayload(form, { fontes = [], ocultos = new Set(), customiz
   p.complemento = form.complemento ? normalizarTexto(form.complemento) : null
   p.observacoes = form.observacoes ? form.observacoes.toUpperCase() : null
   p.estado = form.estado ? form.estado.toUpperCase() : null
+  p.disponibilidade_horario_trabalho = normalizarTurnosTrabalho(form.disponibilidade_horario_trabalho)
+  p.disponibilidade_horario_treinamento = normalizarTurnosTreinamento(form.disponibilidade_horario_treinamento)
   p.data_nascimento = dataBRParaISO(form.data_nascimento)
   ;['possui_veiculo', 'concorda_turno_treinamento', 'possui_ensino_superior'].forEach((k) => {
     if (p[k] === '') p[k] = null
@@ -165,6 +170,8 @@ export function candidatoParaForm(c) {
     if (f[k] == null) f[k] = ''
   })
   f.data_nascimento = isoParaDataBR(c.data_nascimento)
+  f.disponibilidade_horario_trabalho = normalizarTurnosTrabalho(f.disponibilidade_horario_trabalho)
+  f.disponibilidade_horario_treinamento = normalizarTurnosTreinamento(f.disponibilidade_horario_treinamento)
   f.respostas_extras = c.respostas_extras || {}
   return f
 }

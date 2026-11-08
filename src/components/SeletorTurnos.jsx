@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { calcularTextoTurnos, interpretarTurnos, turnosParaValor } from '../lib/turnos'
+
+export { calcularTextoTurnos }
 
 const TURNOS = [
   { id: 'madrugada', label: 'Madrugada', horario: '00:00 - 06:00' },
@@ -7,70 +10,22 @@ const TURNOS = [
   { id: 'noite', label: 'Noite', horario: '18:00 - 00:00' },
 ]
 
-export function calcularTextoTurnos({ manha, tarde, noite, madrugada }) {
-  if (!manha && !tarde && !noite && !madrugada) {
-    return 'Nenhum horário selecionado'
-  }
-  if (manha && tarde && noite && madrugada) {
-    return 'Disponibilidade Total (24 horas por dia)'
-  }
-
-  // Blocos contínuos de 2 ou 3 turnos
-  if (madrugada && manha && !tarde && !noite) return 'Das 00:00 às 12:00 (Madrugada e Manhã)'
-  if (manha && tarde && !noite && !madrugada) return 'Das 06:00 às 18:00 (Manhã e Tarde)'
-  if (tarde && noite && !manha && !madrugada) return 'Das 12:00 às 00:00 (Tarde e Noite)'
-  if (noite && madrugada && !manha && !tarde) return 'Das 18:00 (Noite) até às 06:00 do dia seguinte'
-
-  if (madrugada && manha && tarde && !noite) return 'Das 00:00 às 18:00 (abrangendo Madrugada, Manhã e Tarde)'
-  if (manha && tarde && noite && !madrugada) return 'Das 06:00 às 00:00 (abrangendo Manhã, Tarde e Noite)'
-  if (tarde && noite && madrugada && !manha)
-    return 'Das 12:00 (Tarde) até às 06:00 do dia seguinte (abrangendo Tarde, Noite e Madrugada)'
-  if (noite && madrugada && manha && !tarde)
-    return 'Das 18:00 (Noite) até às 12:00 do dia seguinte (abrangendo Noite, Madrugada e Manhã)'
-
-  // Turnos individuais puros
-  if (manha && !tarde && !noite && !madrugada) return 'Das 06:00 às 12:00 (Apenas Manhã)'
-  if (tarde && !manha && !noite && !madrugada) return 'Das 12:00 às 18:00 (Apenas Tarde)'
-  if (noite && !manha && !tarde && !madrugada) return 'Das 18:00 às 00:00 (Apenas Noite)'
-  if (madrugada && !manha && !tarde && !noite) return 'Das 00:00 às 06:00 (Apenas Madrugada)'
-
-  // Horários picados (ordenados cronologicamente por quem começa mais cedo)
-  const partes = []
-  if (madrugada) partes.push('00:00 às 06:00 (Madrugada)')
-  if (manha) partes.push('06:00 às 12:00 (Manhã)')
-  if (tarde) partes.push('12:00 às 18:00 (Tarde)')
-  if (noite) partes.push('18:00 às 00:00 (Noite)')
-  return `Disponibilidade: ${partes.join(' e/ou ')}`
-}
-
 const VAZIO = { manha: false, tarde: false, noite: false, madrugada: false }
 const TODOS = { manha: true, tarde: true, noite: true, madrugada: true }
 
-// Reconstrói os 4 turnos a partir de um texto já salvo (para a edição).
-function interpretar(valor) {
-  if (!valor) return VAZIO
-  for (let i = 0; i < 16; i++) {
-    const s = { manha: !!(i & 1), tarde: !!(i & 2), noite: !!(i & 4), madrugada: !!(i & 8) }
-    if (calcularTextoTurnos(s) === valor) return s
-  }
-  if (valor === 'Total' || valor.split(' | ').length >= 4) return TODOS
-  const l = valor.toLowerCase()
-  return { manha: l.includes('manhã'), tarde: l.includes('tarde'), noite: l.includes('noite'), madrugada: l.includes('madrugada') }
-}
-
+// O que vai para o banco é só a lista de turnos (ex.: "MANHÃ | TARDE"); a frase com horários abaixo é só para a tela.
 export default function SeletorTurnos({ label, onChange, valorInicial = '', comentario, posicaoComentario = 'depois' }) {
-  const [selecionados, setSelecionados] = useState(() => interpretar(valorInicial))
+  const [selecionados, setSelecionados] = useState(() => interpretarTurnos(valorInicial))
 
   const totalAtivo = selecionados.manha && selecionados.tarde && selecionados.noite && selecionados.madrugada
   const texto = calcularTextoTurnos(selecionados)
 
   function aplicar(novo) {
     setSelecionados(novo)
-    onChange(calcularTextoTurnos(novo))
+    onChange(turnosParaValor(novo))
   }
 
-  // "Total" acende sozinho quando os 4 estão marcados e apaga se qualquer um
-  // for desmarcado — porque deriva do mesmo estado dos 4 turnos.
+  // "Total" acende sozinho quando os 4 estão marcados e apaga se qualquer um for desmarcado.
   function alternarTurno(id) {
     aplicar({ ...selecionados, [id]: !selecionados[id] })
   }

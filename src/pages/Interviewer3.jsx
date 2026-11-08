@@ -13,6 +13,7 @@ import { opcoesResultado } from '../lib/resultados'
 import BotaoCopiar from '../components/BotaoCopiar'
 import ChipDocumento from '../components/ChipDocumento'
 import ChipCompliance from '../components/ChipCompliance'
+import CamposColaborador from '../components/CamposColaborador'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -511,6 +512,11 @@ export default function Interviewer3() {
                     comentario={comentarios.compareceu_alo}
                   />
                 </div>
+              </div>
+
+              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
+                <p className="field-label mb-3">6. Dados do colaborador</p>
+                <CamposColaborador key={selecionado.id} valores={selecionado} desabilitado={salvando} onChange={(campos) => atualizar(campos)} />
               </div>
 
               <div className="pt-6 mt-6 border-t border-navy-100 dark:border-navy-800">

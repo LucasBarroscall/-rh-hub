@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { buscarTodos } from '../../lib/buscarTodos'
 import { formatarData, etapaFunil, corEtapa } from '../../lib/candidato'
 import { useRegrasTeste } from '../../lib/regrasTeste'
-import { COLUNAS_MODELO, converterLinhaImportacao } from '../../lib/importacao'
+import { COLUNAS_MODELO, converterLinhaImportacao, NOMES_CABECALHO_IMPORTACAO } from '../../lib/importacao'
 import { useCamposFormulario } from '../../lib/useCamposFormulario'
 import { useOpcoes } from '../../lib/useOpcoes'
 import { baixarXlsx, lerAbaComoObjetos, objetosParaAba } from '../../lib/xlsx'
@@ -33,12 +33,28 @@ const EXEMPLO = {
   cep: '49000-000',
   email: 'joao.silva@exemplo.com',
   created_at: '15/03/2026',
-  disponibilidade_horario_trabalho: 'Das 06:00 às 18:00 (Manhã e Tarde)',
-  disponibilidade_horario_treinamento: 'Manhã',
+  disponibilidade_horario_trabalho: 'MANHÃ | TARDE',
+  disponibilidade_horario_treinamento: 'MANHÃ',
   disponibilidade_jornada: '6x1',
   possui_veiculo: 'Sim',
   concorda_turno_treinamento: 'Sim',
   possui_ensino_superior: 'Não',
+}
+
+// Mensagens em português para o que o banco devolve ao importar.
+function traduzirErroImportacao(erro) {
+  const m = (erro && erro.message) || ''
+  if (m.includes('CPF_DUPLICADO_HOJE')) return 'CPF já cadastrado hoje (o hub não aceita o mesmo CPF duas vezes no mesmo dia)'
+  if (/does not exist|Could not find the .* column/i.test(m)) return 'o banco ainda não foi atualizado para uma das colunas (rode as atualizações pendentes no Supabase)'
+  const nulo = /null value in column "([^"]+)"/.exec(m)
+  if (nulo) return `campo obrigatório vazio: ${nulo[1]}`
+  if (/invalid input syntax/i.test(m)) return `valor inválido em alguma coluna (${m})`
+  return m || 'erro desconhecido'
+}
+
+const valorDaColuna = (linha, nome) => {
+  const par = Object.entries(linha).find(([k]) => k.trim().toLowerCase() === nome)
+  return par ? par[1] : ''
 }
 
 export default function AbaCandidatos() {
@@ -163,27 +179,49 @@ export default function AbaCandidatos() {
     setImportando(true)
     setResultado(null)
     try {
-      const lido = await lerAbaComoObjetos(await arquivo.arrayBuffer(), {})
-      if (!lido.encontrada || lido.linhas.length === 0) throw new Error('Não encontrei candidatos na planilha. A primeira linha precisa ter os cabeçalhos das colunas.')
+      const lido = await lerAbaComoObjetos(await arquivo.arrayBuffer(), {
+        cabecalhos: [...NOMES_CABECALHO_IMPORTACAO, ...(opcoes.documento || []), ...customizados.map((cf) => cf.rotulo)],
+      })
+      if (!lido.encontrada || lido.linhas.length === 0) {
+        throw new Error('Não encontrei candidatos na planilha. A primeira linha precisa ter os cabeçalhos das colunas (ex.: nome_completo, cpf…).')
+      }
       const validas = []
-      const avisos = []
+      const ignoradas = []
       lido.linhas.forEach((linha) => {
-        const { linha: ok, aviso } = converterLinhaImportacao(linha, regras, customizados, opcoes.documento || [])
-        if (ok) validas.push(ok)
-        else avisos.push(`Linha ${linha.__linha}: ${aviso}`)
+        const { linha: dados, aviso } = converterLinhaImportacao(linha, regras, customizados, opcoes.documento || [])
+        if (dados) validas.push({ dados, numeroLinha: linha.__linha })
+        else ignoradas.push({ linha: linha.__linha, nome: '', cpf: String(valorDaColuna(linha, 'cpf') || ''), motivo: aviso === 'sem nome_completo' ? 'sem nome (a coluna nome_completo é obrigatória)' : aviso })
+      })
+
+      // linhas com o mesmo conjunto de colunas preenchidas vão juntas (evita misturar colunas diferentes no mesmo envio)
+      const grupos = new Map()
+      validas.forEach((v) => {
+        const chave = Object.keys(v.dados).sort().join('|')
+        if (!grupos.has(chave)) grupos.set(chave, [])
+        grupos.get(chave).push(v)
       })
       let inseridas = 0
-      const erros = []
-      for (let i = 0; i < validas.length; i += 200) {
-        const lote = validas.slice(i, i + 200)
-        const { error } = await supabase.from('candidatos').insert(lote)
-        if (error) erros.push(`Linhas ${i + 1} a ${i + lote.length} (da lista válida): ${error.message}`)
-        else inseridas += lote.length
+      const falhas = []
+      for (const itens of grupos.values()) {
+        for (let i = 0; i < itens.length; i += 100) {
+          const lote = itens.slice(i, i + 100)
+          const { error } = await supabase.from('candidatos').insert(lote.map((x) => x.dados))
+          if (!error) {
+            inseridas += lote.length
+            continue
+          }
+          // se o envio em lote falhou, tenta linha a linha para descobrir exatamente qual deu problema
+          for (const x of lote) {
+            const r = await supabase.from('candidatos').insert(x.dados)
+            if (r.error) falhas.push({ linha: x.numeroLinha, nome: x.dados.nome_completo || '', cpf: x.dados.cpf || '', motivo: traduzirErroImportacao(r.error) })
+            else inseridas += 1
+          }
+        }
       }
-      setResultado({ inseridas, avisos, erros })
+      setResultado({ inseridas, total: lido.linhas.length, ignoradas, falhas, erroGeral: null })
       carregar()
     } catch (err) {
-      setResultado({ inseridas: 0, avisos: [], erros: [err.message || 'Não foi possível ler a planilha.'] })
+      setResultado({ inseridas: 0, total: 0, ignoradas: [], falhas: [], erroGeral: err.message || 'Não foi possível ler a planilha.' })
     }
     setImportando(false)
     if (inputArquivoRef.current) inputArquivoRef.current.value = ''
@@ -232,9 +270,48 @@ export default function AbaCandidatos() {
 
       {resultado && (
         <div className="card p-4 mb-4 text-sm">
-          <p className="font-medium text-navy-800 dark:text-navy-100">{resultado.inseridas} candidato(s) importado(s).</p>
-          {resultado.avisos.length > 0 && <p className="text-amber-700 dark:text-amber-300 mt-1">Ignoradas: {resultado.avisos.slice(0, 5).join(' · ')}{resultado.avisos.length > 5 ? ' …' : ''}</p>}
-          {resultado.erros.length > 0 && <p className="text-clay-600 mt-1">Erros: {resultado.erros.join(' · ')}</p>}
+          {resultado.erroGeral ? (
+            <p className="text-clay-600">{resultado.erroGeral}</p>
+          ) : (
+            <p className="font-medium text-navy-800 dark:text-navy-100">
+              {resultado.inseridas} de {resultado.total} linha(s) importada(s).
+            </p>
+          )}
+          {[
+            ['Não importadas (dados incompletos)', resultado.ignoradas, 'text-amber-700 dark:text-amber-300'],
+            ['Não importadas (recusadas pelo banco)', resultado.falhas, 'text-clay-600'],
+          ].map(([titulo, itens, cor]) =>
+            itens.length > 0 ? (
+              <div key={titulo} className="mt-2">
+                <p className={`font-medium ${cor}`}>
+                  {titulo}: {itens.length}
+                </p>
+                <ul className="text-xs text-navy-600 dark:text-navy-300 mt-1 space-y-0.5">
+                  {itens.slice(0, 8).map((i, n) => (
+                    <li key={n}>
+                      Linha {i.linha}
+                      {i.nome ? ` — ${i.nome}` : ''}
+                      {i.cpf ? ` (CPF ${i.cpf})` : ''}: {i.motivo}
+                    </li>
+                  ))}
+                  {itens.length > 8 && <li>…e mais {itens.length - 8}</li>}
+                </ul>
+              </div>
+            ) : null,
+          )}
+          {resultado.ignoradas.length + resultado.falhas.length > 0 && (
+            <button
+              className="text-xs underline text-navy-500 hover:text-navy-800 dark:hover:text-white mt-2"
+              onClick={() =>
+                baixarXlsx(
+                  [objetosParaAba('Problemas', [...resultado.ignoradas, ...resultado.falhas].map((i) => ({ Linha: i.linha, Nome: i.nome, CPF: i.cpf, Motivo: i.motivo })))],
+                  'importacao_problemas.xlsx',
+                )
+              }
+            >
+              Baixar lista de problemas (.xlsx)
+            </button>
+          )}
         </div>
       )}
 

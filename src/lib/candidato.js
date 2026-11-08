@@ -1,3 +1,4 @@
+import { interpretarTurnos, turnosParaValor, calcularTextoTurnos } from './turnos'
 // Regras de negócio e formatação compartilhadas entre as páginas.
 
 export const FONTES = ['Redes Sociais', 'Indicação', 'Outros']
@@ -71,10 +72,8 @@ export function formatarDataHora(d) {
 // cadastros antigos salvos no formato "Manhã | Tarde | Noite | Madrugada".
 export function formatarDisponibilidadeExibicao(valor) {
   if (!valor) return '—'
-  if (valor === 'Total') return 'Disponibilidade Total'
-  const partes = valor.split(' | ').filter(Boolean)
-  if (partes.length >= 4) return 'Disponibilidade Total'
-  return valor
+  const sel = interpretarTurnos(valor)
+  return turnosParaValor(sel) ? calcularTextoTurnos(sel) : valor
 }
 
 // Resultado do exame: um só controle com 3 opções.

@@ -179,7 +179,7 @@ export const normalizarCabecalho = (s) => semAcento(s).toUpperCase().replace(/[_
 
 // Lê UMA aba como objetos { cabeçalho: valor }. Com "aba" informada procura essa aba (sem diferenciar
 // maiúsculas/acentos); sem ela, usa a primeira aba visível. Devolve também a lista de abas encontradas.
-export async function lerAbaComoObjetos(buffer, { aba } = {}) {
+export async function lerAbaComoObjetos(buffer, { aba, cabecalhos } = {}) {
   const abas = await lerXlsx(buffer)
   const nomes = abas.map((a) => a.nome)
   let escolhida = null
@@ -187,7 +187,12 @@ export async function lerAbaComoObjetos(buffer, { aba } = {}) {
   else escolhida = abas.find((a) => !a.oculta) || abas[0] || null
   if (!escolhida) return { encontrada: false, abas: nomes, nome: null, colunas: [], linhas: [] }
   const linhas = escolhida.linhas
-  const iCab = linhas.findIndex((l) => l.filter((c) => String(c).trim() !== '').length >= 2)
+  // Linha do cabeçalho: a primeira que tem um dos cabeçalhos esperados (funciona até com 1 coluna só);
+  // senão a primeira com 2+ células; senão a primeira linha preenchida.
+  const esperados = (cabecalhos || []).map(normalizarCabecalho)
+  let iCab = esperados.length ? linhas.findIndex((l) => l.some((c) => String(c).trim() !== '' && esperados.includes(normalizarCabecalho(c)))) : -1
+  if (iCab < 0) iCab = linhas.findIndex((l) => l.filter((c) => String(c).trim() !== '').length >= 2)
+  if (iCab < 0) iCab = linhas.findIndex((l) => l.some((c) => String(c).trim() !== ''))
   if (iCab < 0) return { encontrada: true, abas: nomes, nome: escolhida.nome, colunas: [], linhas: [] }
   const colunas = linhas[iCab].map((c) => String(c).trim())
   const objetos = []

@@ -43,7 +43,8 @@ export function prepararRetornoCompliance(colunas, linhas) {
   })
   const faltando = [CABECALHOS_RETORNO.cpf, CABECALHOS_RETORNO.statusFinal].filter((n) => !achar(n))
   if (faltando.length) {
-    return { erro: `Não encontrei na aba a(s) coluna(s) obrigatória(s): ${faltando.join(', ')}.`, validas: [], outros: [], invalidos: [], vazias: 0 }
+    const lidas = colunas.filter(Boolean).join(', ') || '(nenhuma)'
+    return { erro: `Não encontrei na aba a(s) coluna(s) obrigatória(s): ${faltando.join(', ')}. Colunas lidas: ${lidas}.`, validas: [], outros: [], invalidos: [], vazias: 0 }
   }
   const pega = (l, k) => (col[k] ? String(l[col[k]] ?? '').trim() : '')
   const validas = []

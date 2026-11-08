@@ -9,7 +9,7 @@ import ComentarioCampo from './ComentarioCampo'
 import { useComentariosCompleto } from '../lib/useComentarios'
 import { useLegendasOpcoes } from '../lib/useLegendasOpcoes'
 import { maskRG, maskCPF, maskTelefone, maskCEP, maskDataBR, normalizarTexto } from '../lib/formatters'
-import { VALIDACOES, OPCOES_TREINAMENTO, OPCOES_ESCALA } from '../lib/cadastro'
+import { VALIDACOES, OPCOES_TREINAMENTO, OPCOES_ESCALA, VALOR_TREINAMENTO } from '../lib/cadastro'
 import { estaVisivel } from '../lib/camposPersonalizados'
 
 const TITULO_SECAO = 'text-base font-semibold text-navy-900 dark:text-white pb-2 border-b border-navy-100 dark:border-navy-800'
@@ -348,6 +348,7 @@ export default function CamposCadastro({ form, setForm, opcoes, fontes, customiz
         {envolver('disponibilidade_horario_treinamento', <EscolhaUnica
           label={titulos.disponibilidade_horario_treinamento || 'Disponibilidade para treinamento'}
           opcoes={OPCOES_TREINAMENTO}
+          mapaValores={VALOR_TREINAMENTO}
           legendas={legendas.disponibilidade_horario_treinamento}
           valor={form.disponibilidade_horario_treinamento}
           onChange={(v) => set('disponibilidade_horario_treinamento', v)}
