@@ -13,6 +13,7 @@ import { candidatoParaForm, validarCadastroDetalhado, montarPayload, OPCOES_COMP
 import CamposCadastro from './CamposCadastro'
 import BoolToggle from './BoolToggle'
 import CamposColaborador from './CamposColaborador'
+import { traduzirErroSalvar } from '../lib/erros'
 import { useAuth } from '../contexts/AuthContext'
 import Toast from './Toast'
 
@@ -94,7 +95,7 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
     const { error } = await supabase.from('candidatos').update(resto).eq('id', candidato.id)
     setSalvando(false)
     if (error) {
-      setErro(error.message?.includes('CPF_DUPLICADO_HOJE') ? 'Este CPF já foi cadastrado hoje.' : `Não foi possível salvar: ${error.message}`)
+      setErro(traduzirErroSalvar(error))
       return
     }
     onSaved()
@@ -117,6 +118,13 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
             <X size={20} />
           </button>
         </div>
+
+        {podeColaborador && (
+          <div className="pb-5 mb-6 border-b border-navy-100 dark:border-navy-800">
+            <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-4">Dados do colaborador</h3>
+            <CamposColaborador valores={form} desabilitado={salvando} onChange={(campos) => setForm((f) => ({ ...f, ...campos }))} />
+          </div>
+        )}
 
         <CamposCadastro
           form={form}
@@ -270,13 +278,6 @@ export default function EditorCandidato({ candidato, onClose, onSaved, podeExclu
             </div>
           </div>
         </div>
-
-        {podeColaborador && (
-          <div className="pt-5 mt-6 border-t border-navy-100 dark:border-navy-800">
-            <h3 className="text-base font-semibold text-navy-900 dark:text-white mb-4">Dados do colaborador</h3>
-            <CamposColaborador valores={form} desabilitado={salvando} onChange={(campos) => setForm((f) => ({ ...f, ...campos }))} />
-          </div>
-        )}
 
         {erro && <p className="text-sm text-clay-600 mt-4">{erro}</p>}
 

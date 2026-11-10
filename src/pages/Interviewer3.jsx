@@ -14,6 +14,8 @@ import BotaoCopiar from '../components/BotaoCopiar'
 import ChipDocumento from '../components/ChipDocumento'
 import ChipCompliance from '../components/ChipCompliance'
 import CamposColaborador from '../components/CamposColaborador'
+import Toast from '../components/Toast'
+import { traduzirErroSalvar } from '../lib/erros'
 import BoolToggle from '../components/BoolToggle'
 import DuplicidadeModal from '../components/DuplicidadeModal'
 import EditorCandidato from '../components/EditorCandidato'
@@ -109,6 +111,7 @@ export default function Interviewer3() {
   const [busca, setBusca] = useState('')
   const [mostrarEditor, setMostrarEditor] = useState(false)
   const [mostrarDocs, setMostrarDocs] = useState(false)
+  const [erroAcao, setErroAcao] = useState('')
   const [dataExame, setDataExame] = useState('')
   const { duplicatas, mostrar: mostrarDuplicidade, dispensar, reabrirOpcoes } = useDuplicidade(selecionado)
   const comentarios = useComentarios()
@@ -145,15 +148,20 @@ export default function Interviewer3() {
   }, [selecionado])
 
   async function atualizar(campos, { avancar = false } = {}) {
-    if (!selecionado) return
+    if (!selecionado) return false
     setSalvando(true)
+    setErroAcao('')
     const { data, error } = await supabase.from('candidatos').update(campos).eq('id', selecionado.id).select().single()
     setSalvando(false)
-    if (!error) {
-      setSelecionado(avancar && !mostrarTodos && etapa3Completa(data) ? null : data)
-      carregar()
+    if (error) {
+      // antes o erro sumia em silêncio; agora aparece um aviso explicando o motivo
+      console.error(error)
+      setErroAcao(traduzirErroSalvar(error))
+      return false
     }
-    return !error
+    setSelecionado(avancar && !mostrarTodos && etapa3Completa(data) ? null : data)
+    carregar()
+    return true
   }
 
   function reprovar() {
@@ -368,6 +376,11 @@ export default function Interviewer3() {
               <CamposAdicionaisCandidato candidato={selecionado} etapa={3} />
               </dl>
 
+              <div className="pt-5 border-t border-navy-100 dark:border-navy-800 mb-5">
+                <p className="field-label mb-3">Dados do colaborador (Matrícula, Vale e CHAVE M)</p>
+                <CamposColaborador key={selecionado.id} valores={selecionado} desabilitado={salvando} onChange={(campos) => atualizar(campos)} />
+              </div>
+
               <div className="pt-5 border-t border-navy-100 dark:border-navy-800">
                 <p className="field-label mb-2">1. Contato via WhatsApp</p>
                 <button
@@ -514,11 +527,6 @@ export default function Interviewer3() {
                 </div>
               </div>
 
-              <div className="pt-5 mt-5 border-t border-navy-100 dark:border-navy-800">
-                <p className="field-label mb-3">6. Dados do colaborador</p>
-                <CamposColaborador key={selecionado.id} valores={selecionado} desabilitado={salvando} onChange={(campos) => atualizar(campos)} />
-              </div>
-
               <div className="pt-6 mt-6 border-t border-navy-100 dark:border-navy-800">
                 <button
                   disabled={salvando}
@@ -539,6 +547,7 @@ export default function Interviewer3() {
         </div>
 
         {selecionado && <AvisoRepeticao candidato={selecionado} duplicatas={duplicatas} onReabrir={reabrirOpcoes} />}
+        <Toast mensagem={erroAcao} onFechar={() => setErroAcao('')} />
         {mostrarDuplicidade && (
           <DuplicidadeModal
             candidatoAtual={selecionado}

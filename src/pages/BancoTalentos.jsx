@@ -107,6 +107,9 @@ export default function BancoTalentos() {
   }
 
   const colunas = [
+    ['Matrícula', (c) => c.matricula || '—'],
+    ['Vale', (c) => (c.vale ? `${c.vale}${c.vale_via ? ` · ${c.vale_via}` : ''}` : '—')],
+    ['CHAVE M', (c) => c.chave_m || '—'],
     ['Contato', (c) => (
       <div className="text-xs leading-tight">
         <div>{c.telefone}</div>
@@ -155,9 +158,6 @@ export default function BancoTalentos() {
     ['Onboarding', (c) => (c.compareceu_onboarding ? <Chip cor="#5C8A6E">Sim</Chip> : <span className="text-navy-300">—</span>)],
     ['Treinamento', (c) => (c.compareceu_treinamento ? <Chip cor="#5C8A6E">Sim</Chip> : <span className="text-navy-300">—</span>)],
     ['Alô', (c) => (c.compareceu_alo ? <Chip cor="#5C8A6E">Realizado</Chip> : <span className="text-navy-300">—</span>)],
-    ['Matrícula', (c) => c.matricula || '—'],
-    ['Vale', (c) => (c.vale ? `${c.vale}${c.vale_via ? ` · ${c.vale_via}` : ''}` : '—')],
-    ['CHAVE M', (c) => c.chave_m || '—'],
     ['Trabalho', (c) => <span className="text-xs">{c.disponibilidade_horario_trabalho}</span>],
     ['Treinamento (turno)', (c) => c.disponibilidade_horario_treinamento],
     ['Escala', (c) => c.disponibilidade_jornada],
