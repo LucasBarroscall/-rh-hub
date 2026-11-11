@@ -16,7 +16,7 @@ import EditorCandidato from '../components/EditorCandidato'
 import { useDuplicidade } from '../lib/useDuplicidade'
 import { useRegrasTeste } from '../lib/regrasTeste'
 import { useComentarios } from '../lib/useComentarios'
-import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa, formatarDisponibilidadeExibicao } from '../lib/candidato'
+import { formatarData, formatarDataHora, simNaoOuVazio, etapa1Completa, formatarDisponibilidadeExibicao, opcoesDisponibilidade } from '../lib/candidato'
 import { statusAtual } from '../lib/status'
 import { UserCheck, Phone, MapPin, Calendar, X, UserPlus, AlertTriangle, Filter, Pencil } from 'lucide-react'
 
@@ -263,9 +263,8 @@ export default function Interviewer1() {
                 </div>
                 <div>
                   <span className="text-navy-400 block">Disponibilidade de trabalho:</span>
-                  <span className="text-navy-700 dark:text-navy-200">
-                    {formatarDisponibilidadeExibicao(selecionado.disponibilidade_horario_trabalho)}
-                  </span>
+                  <span className="text-navy-700 dark:text-navy-200 block">{opcoesDisponibilidade(selecionado.disponibilidade_horario_trabalho)}</span>
+                  <span className="text-navy-500 dark:text-navy-300 block">{formatarDisponibilidadeExibicao(selecionado.disponibilidade_horario_trabalho)}</span>
                 </div>
                 <div>
                   <span className="text-navy-400">Disponibilidade de treinamento: </span>

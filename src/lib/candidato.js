@@ -93,3 +93,15 @@ export function camposDoExame(opcao, hojeISO) {
   if (opcao === 'Não compareceu') return { aprovado_exame: null, compareceu_exame: false, data_aprovacao_exame: null }
   return { aprovado_exame: null, compareceu_exame: null, data_aprovacao_exame: null }
 }
+
+// Só as opções escolhidas, em linha: "Noite | Madrugada" (a frase com os horários vem abaixo, na tela).
+const ROTULO_TURNO = { 'MANHÃ': 'Manhã', TARDE: 'Tarde', NOITE: 'Noite', MADRUGADA: 'Madrugada' }
+export function opcoesDisponibilidade(valor) {
+  if (!valor) return '—'
+  const padrao = turnosParaValor(interpretarTurnos(valor))
+  if (!padrao) return valor
+  return padrao
+    .split(' | ')
+    .map((t) => ROTULO_TURNO[t] || t)
+    .join(' | ')
+}
